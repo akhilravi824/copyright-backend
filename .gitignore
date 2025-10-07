@@ -140,3 +140,4 @@ client/dist/
 # Temporary files
 tmp/
 temp/
+.vercel

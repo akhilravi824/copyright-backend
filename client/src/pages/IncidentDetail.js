@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import axios from 'axios';
+import api from '../api/api';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -29,14 +29,14 @@ const IncidentDetail = () => {
 
   const { data: incident, isLoading } = useQuery(
     ['incident', id],
-    () => axios.get(`/api/incidents/${id}`).then(res => res.data),
+    () => api.get(`/api/incidents/${id}`).then(res => res.data),
     {
       enabled: !!id,
     }
   );
 
   const updateStatusMutation = useMutation(
-    (status) => axios.put(`/api/incidents/${id}/status`, { status }),
+    (status) => api.put(`/api/incidents/${id}/status`, { status }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['incident', id]);
@@ -49,7 +49,7 @@ const IncidentDetail = () => {
   );
 
   const addNoteMutation = useMutation(
-    (content) => axios.post(`/api/incidents/${id}/notes`, { content }),
+    (content) => api.post(`/api/incidents/${id}/notes`, { content }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['incident', id]);

@@ -10,12 +10,10 @@ import {
   CheckCircle,
   User,
   Calendar,
-  Search,
   Filter,
   Eye,
   BarChart3,
-  TrendingUp,
-  Shield
+  TrendingUp
 } from 'lucide-react';
 
 const Cases = () => {

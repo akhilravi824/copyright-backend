@@ -1,0 +1,31 @@
+# Environment Variables Template for Vercel Deployment
+# Copy these to your Vercel project settings
+
+# Database Configuration
+DATABASE_TYPE=supabase
+NEXT_PUBLIC_SUPABASE_URL=https://slccdyjixpmstlhveagk.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsY2NkeWppeHBtc3RsaHZlYWdrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3ODc0MjEsImV4cCI6MjA3NTM2MzQyMX0.6H9CVWzYybK3mJNHeo-B2T-pYqBeBg40UVT8lfQ_Ev4
+
+# Alternative MongoDB Configuration (if not using Supabase)
+# DATABASE_TYPE=mongodb
+# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/dsp-brand-protection
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+JWT_EXPIRES_IN=7d
+
+# Email Configuration (for notifications)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_FROM=noreply@yourdomain.com
+
+# Client URL (for CORS)
+CLIENT_URL=https://your-app-name.vercel.app
+
+# Node Environment
+NODE_ENV=production
+
+# Port (Vercel will set this automatically)
+PORT=3000

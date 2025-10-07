@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, FileText, User, Clock, CheckCircle, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Search, FileText, User, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useQuery } from 'react-query';
 import axios from 'axios';
 
@@ -91,6 +91,8 @@ const SearchSuggestions = ({
       case 'Escape':
         setIsOpen(false);
         setSelectedIndex(-1);
+        break;
+      default:
         break;
     }
   };

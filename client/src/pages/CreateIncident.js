@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/api';
 import toast from 'react-hot-toast';
 import {
   Upload,
@@ -160,7 +160,7 @@ const CreateIncident = () => {
           tags: data.tags?.split(',').map(tag => tag.trim()).filter(tag => tag) || []
         };
 
-        response = await axios.post('/api/incidents', incidentData, {
+        response = await api.post('/api/incidents', incidentData, {
           headers: {
             'Content-Type': 'application/json',
           },
