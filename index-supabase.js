@@ -189,24 +189,71 @@ app.get('/api/cases/stats/dashboard', async (req, res) => {
   try {
     const { data: incidents, error } = await supabase
       .from('incidents')
-      .select('status, created_at');
+      .select('status, priority, severity, incident_type, created_at');
 
     if (error) {
       console.error('❌ Error fetching stats:', error);
       return res.status(500).json({ message: 'Failed to fetch stats' });
     }
 
-    const stats = {
-      totalCases: incidents.length,
-      activeCases: incidents.filter(i => ['reported', 'under_review', 'in_progress'].includes(i.status)).length,
-      resolvedCases: incidents.filter(i => ['resolved', 'closed'].includes(i.status)).length,
-      pendingCases: incidents.filter(i => i.status === 'reported').length,
-      recentActivity: incidents.slice(0, 5).map(incident => ({
+    // Calculate overview stats
+    const overview = {
+      total: incidents.length,
+      open: incidents.filter(i => ['reported', 'under_review', 'in_progress'].includes(i.status)).length,
+      resolved: incidents.filter(i => ['resolved', 'closed'].includes(i.status)).length,
+      critical: incidents.filter(i => i.severity === 'critical').length,
+      high: incidents.filter(i => i.severity === 'high').length,
+      urgent: incidents.filter(i => i.priority === 'urgent').length
+    };
+
+    // Calculate status breakdown
+    const statusCounts = {};
+    incidents.forEach(incident => {
+      statusCounts[incident.status] = (statusCounts[incident.status] || 0) + 1;
+    });
+    const statusBreakdown = Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      count
+    }));
+
+    // Calculate type breakdown
+    const typeCounts = {};
+    incidents.forEach(incident => {
+      typeCounts[incident.incident_type] = (typeCounts[incident.incident_type] || 0) + 1;
+    });
+    const typeBreakdown = Object.entries(typeCounts).map(([type, count]) => ({
+      type,
+      count
+    }));
+
+    // Calculate monthly trends
+    const monthlyCounts = {};
+    incidents.forEach(incident => {
+      const date = new Date(incident.created_at);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+      monthlyCounts[monthKey] = (monthlyCounts[monthKey] || 0) + 1;
+    });
+    const monthlyTrends = Object.entries(monthlyCounts).map(([month, count]) => ({
+      month,
+      count
+    })).sort((a, b) => a.month.localeCompare(b.month));
+
+    // Recent activity
+    const recentActivity = incidents
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 5)
+      .map(incident => ({
         id: incident.id,
         action: 'Created',
         timestamp: incident.created_at
-      })),
-      monthlyStats: []
+      }));
+
+    const stats = {
+      overview,
+      statusBreakdown,
+      typeBreakdown,
+      monthlyTrends,
+      recentActivity
     };
 
     console.log('✅ Dashboard stats calculated:', stats);
