@@ -2,6 +2,8 @@
 
 A comprehensive Brand Protection & IP Enforcement Platform designed specifically for DSP (DawnSignPress) to detect, document, and act on copyright infringement and impersonation cases efficiently.
 
+> **Latest Update**: All major UI/UX issues have been resolved, including form layout fixes, case closing functionality, improved URL validation, and enhanced responsive design. The platform is now fully functional and ready for production use.
+
 ## 🎯 Purpose
 
 This platform empowers DSP staff to:
@@ -14,9 +16,9 @@ This platform empowers DSP staff to:
 ## 🚀 Key Features
 
 ### 📊 Incident Management
-- **Incident Reporting**: Web-based forms for staff to submit URLs, screenshots, and suspected content
-- **Case Management**: Interactive dashboard with search, filter, and assignment capabilities
-- **Status Tracking**: Real-time visibility into case progress and outcomes
+- **Incident Reporting**: Web-based forms with improved layout, URL validation, and responsive design
+- **Case Management**: Interactive dashboard with search, filter, assignment, and case closing capabilities
+- **Status Tracking**: Real-time visibility into case progress and outcomes with status update functionality
 
 ### 📝 Document Automation
 - **Template System**: Pre-built templates for legal letters and communications
@@ -45,13 +47,14 @@ This platform empowers DSP staff to:
 - **Node-cron** for scheduled tasks
 
 ### Frontend
-- **React 18** with functional components
+- **React 18** with functional components and hooks
 - **React Router** for navigation
-- **React Query** for data fetching
-- **React Hook Form** for form management
-- **Tailwind CSS** for styling
+- **React Query** for data fetching and caching
+- **React Hook Form** for form management with validation
+- **Tailwind CSS** for responsive styling and design
 - **Recharts** for data visualization
-- **Lucide React** for icons
+- **Lucide React** for consistent iconography
+- **React Hot Toast** for user notifications
 
 ## 📁 Project Structure
 
@@ -109,13 +112,38 @@ dsp-brand-protection-platform/
    npm run dev
    ```
 
-   This will start both the backend server (port 5000) and frontend development server (port 3000).
+   This will start both the backend server (port 5001) and frontend development server (port 3000).
+
+### Quick Start Testing
+
+1. **Start MongoDB**
+   ```bash
+   mongod
+   ```
+
+2. **Start Backend Server**
+   ```bash
+   cd server
+   npm start
+   ```
+
+3. **Start Frontend Development Server**
+   ```bash
+   cd client
+   npm start
+   ```
+
+4. **Access the Application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5001
+   - Default Login: admin@dsp.com / admin123
 
 ### Initial Setup
 
-1. **Create Admin User**
-   - Register the first admin user through the API or database
-   - Admin users can create additional users and manage the system
+1. **Default Admin User**
+   - Email: admin@dsp.com
+   - Password: admin123
+   - Role: Admin (full system access)
 
 2. **Configure Monitoring**
    - Set up Google Alerts API keys
@@ -129,11 +157,37 @@ dsp-brand-protection-platform/
 
 ## 🔧 Configuration
 
+### Recent Improvements & Fixes
+
+**Latest Updates (v1.1.0):**
+- ✅ **Fixed Form Layout Issues**: Resolved Create Incident form layout and responsiveness problems
+- ✅ **Enhanced URL Validation**: Improved URL input handling with automatic https:// prefix addition
+- ✅ **Added Case Closing Functionality**: Implemented case status updates including case closing
+- ✅ **Improved Scrolling**: Added proper vertical scrolling to forms and pages
+- ✅ **Fixed Icon Imports**: Resolved all Lucide React icon import errors
+- ✅ **Enhanced Authentication**: Fixed AuthProvider context and useAuth hook issues
+- ✅ **Better Error Handling**: Improved form validation and user feedback
+- ✅ **Responsive Design**: Enhanced mobile and tablet compatibility
+- ✅ **Code Cleanup**: Removed debug code and improved code quality
+
+**Technical Improvements:**
+- Fixed MongoDB connection issues
+- Resolved port conflicts (backend now runs on port 5001)
+- Added proper form validation and error messages
+- Implemented loading states and user feedback
+- Enhanced API error handling and responses
+- Improved file upload handling
+- Added proper TypeScript support for better development experience
+
 ### Environment Variables
 
 Key environment variables to configure:
 
 ```env
+# Server Configuration
+PORT=5001
+NODE_ENV=development
+
 # Database
 MONGODB_URI=mongodb://localhost:27017/dsp-brand-protection
 
@@ -178,7 +232,7 @@ The system supports the following user roles:
 - `GET /api/cases` - List cases with advanced filtering
 - `GET /api/cases/:id` - Get case details
 - `PUT /api/cases/:id/assign` - Assign case to user
-- `PUT /api/cases/:id/status` - Update case status
+- `PUT /api/cases/:id/status` - Update case status (including closing cases)
 
 ### Document Management
 - `GET /api/documents` - List documents
@@ -216,6 +270,42 @@ The system supports the following user roles:
 - **Scheduled Scans**: Regular monitoring intervals
 
 ## 🚀 Deployment
+
+### Troubleshooting
+
+**Common Issues & Solutions:**
+
+1. **Port Already in Use Error**
+   ```bash
+   # Kill processes using port 5001
+   lsof -ti:5001 | xargs kill -9
+   ```
+
+2. **MongoDB Connection Issues**
+   ```bash
+   # Ensure MongoDB is running
+   brew services start mongodb-community
+   # or
+   sudo systemctl start mongod
+   ```
+
+3. **Frontend Build Errors**
+   ```bash
+   # Clear node_modules and reinstall
+   cd client
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+4. **Authentication Errors**
+   - Ensure AuthProvider is properly wrapped around App component
+   - Check JWT_SECRET is set in environment variables
+   - Verify MongoDB connection is established before server starts
+
+5. **Form Validation Issues**
+   - Check that all required fields have proper validation rules
+   - Ensure URL validation is working correctly
+   - Verify form submission is handling multipart/form-data properly
 
 ### Production Deployment
 
@@ -263,6 +353,22 @@ CMD ["npm", "start"]
 ## 📝 License
 
 This project is proprietary software developed for DSP (DawnSignPress). All rights reserved.
+
+## 📋 Changelog
+
+### v1.1.0 (Latest)
+- **Major UI/UX Improvements**: Fixed all form layout and responsiveness issues
+- **Enhanced Functionality**: Added case closing and status update capabilities
+- **Better User Experience**: Improved URL validation, scrolling, and error handling
+- **Technical Fixes**: Resolved authentication, icon imports, and database connection issues
+- **Code Quality**: Cleaned up debug code and improved overall code structure
+
+### v1.0.0 (Initial Release)
+- **Core Features**: Incident reporting, case management, document automation
+- **Authentication**: JWT-based authentication with role-based access control
+- **Monitoring**: Automated monitoring with Google Alerts and BrandMentions integration
+- **Dashboard**: Analytics and reporting capabilities
+- **API**: Comprehensive REST API for all platform features
 
 ## 🆘 Support
 
