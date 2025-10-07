@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "index-simple.js",
+      "src": "index-supabase.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/index-simple.js"
+      "dest": "/index-supabase.js"
     }
   ]
 }
