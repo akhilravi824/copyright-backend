@@ -135,15 +135,75 @@ router.get('/search-suggestions', auth, async (req, res) => {
     const searchRegex = new RegExp(query, 'i');
     
     // Search in cases (incidents)
-    const cases = await Incident.find({
+    // Handle case number search (DSP-XXXXXXXX format)
+    let searchQuery = {
       $or: [
-        { caseNumber: searchRegex },
         { title: searchRegex },
         { description: searchRegex },
         { infringerInfo: { $regex: searchRegex } },
         { tags: { $in: [searchRegex] } }
       ]
-    })
+    };
+    
+    // If query looks like a case number (DSP-XXXXXXXX), search by _id
+    if (query.match(/^DSP-[A-F0-9]{8}$/i)) {
+      const caseIdSuffix = query.replace(/^DSP-/i, '').toLowerCase();
+      // Find all incidents and filter by case number
+      const allIncidents = await Incident.find({})
+        .select('_id title status incidentType severity priority')
+        .sort({ reportedAt: -1 });
+      
+      // Filter by case number
+      const matchingCases = allIncidents.filter(incident => {
+        const caseNumber = `DSP-${incident._id.toString().slice(-8).toUpperCase()}`;
+        return caseNumber.toLowerCase() === query.toLowerCase();
+      });
+      
+      // Format case suggestions
+      const caseSuggestions = matchingCases.map(caseItem => ({
+        type: 'case',
+        id: caseItem._id,
+        title: caseItem.title,
+        subtitle: `DSP-${caseItem._id.toString().slice(-8).toUpperCase()} • ${caseItem.status}`,
+        value: caseItem.title,
+        icon: 'file-text',
+        category: 'Cases'
+      }));
+      
+      // Search in users (for assigned to suggestions)
+      const users = await User.find({
+        $or: [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { email: searchRegex },
+          { jobTitle: searchRegex }
+        ],
+        isActive: true
+      })
+      .select('firstName lastName email jobTitle department')
+      .limit(5);
+      
+      // Format suggestions
+      const suggestions = [
+        ...caseSuggestions,
+        // User suggestions
+        ...users.map(user => ({
+          type: 'user',
+          id: user._id,
+          title: `${user.firstName} ${user.lastName}`,
+          subtitle: `${user.jobTitle || 'User'} • ${user.department}`,
+          value: `${user.firstName} ${user.lastName}`,
+          icon: 'user',
+          category: 'Users'
+        })),
+        // Common search terms
+        ...getCommonSearchTerms(query)
+      ];
+      
+      return res.json({ suggestions: suggestions.slice(0, parseInt(limit)) });
+    }
+    
+    const cases = await Incident.find(searchQuery)
     .select('caseNumber title status incidentType severity priority')
     .limit(parseInt(limit))
     .sort({ reportedAt: -1 });
