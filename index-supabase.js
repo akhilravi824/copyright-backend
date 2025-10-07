@@ -1,12 +1,36 @@
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 const supabase = require('./config/supabase');
 
 const app = express();
 
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow images and documents
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images and documents are allowed'));
+    }
+  }
+});
+
 // Basic middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -105,6 +129,110 @@ app.get('/api/auth/me', async (req, res) => {
     }
   } else {
     res.status(401).json({ message: 'No token provided' });
+  }
+});
+
+// File upload endpoint
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  console.log('📁 File upload requested:', req.file?.originalname);
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const ext = path.extname(req.file.originalname);
+    const filename = `evidence-${timestamp}-${Math.floor(Math.random() * 1000000000)}${ext}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('evidence')
+      .upload(filename, req.file.buffer, {
+        contentType: req.file.mimetype,
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      console.error('❌ Error uploading file:', error);
+      return res.status(500).json({ message: 'Failed to upload file' });
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('evidence')
+      .getPublicUrl(filename);
+
+    console.log('✅ File uploaded:', filename);
+    res.json({
+      filename: filename,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      url: urlData.publicUrl,
+      uploadedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ File upload error:', error);
+    res.status(500).json({ message: 'Failed to upload file' });
+  }
+});
+
+// Multiple file upload endpoint
+app.post('/api/upload/multiple', upload.array('files', 10), async (req, res) => {
+  console.log('📁 Multiple file upload requested:', req.files?.length, 'files');
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+
+    const uploadResults = [];
+
+    for (const file of req.files) {
+      // Generate unique filename
+      const timestamp = Date.now();
+      const ext = path.extname(file.originalname);
+      const filename = `evidence-${timestamp}-${Math.floor(Math.random() * 1000000000)}${ext}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('evidence')
+        .upload(filename, file.buffer, {
+          contentType: file.mimetype,
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('❌ Error uploading file:', file.originalname, error);
+        continue;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('evidence')
+        .getPublicUrl(filename);
+
+      uploadResults.push({
+        filename: filename,
+        originalName: file.originalname,
+        size: file.size,
+        mimetype: file.mimetype,
+        url: urlData.publicUrl,
+        uploadedAt: new Date().toISOString()
+      });
+    }
+
+    console.log('✅ Files uploaded:', uploadResults.length);
+    res.json({
+      files: uploadResults,
+      totalUploaded: uploadResults.length,
+      totalRequested: req.files.length
+    });
+  } catch (error) {
+    console.error('❌ Multiple file upload error:', error);
+    res.status(500).json({ message: 'Failed to upload files' });
   }
 });
 
@@ -528,10 +656,31 @@ app.get('/api/incidents', async (req, res) => {
 app.post('/api/incidents', async (req, res) => {
   console.log('➕ New incident creation:', req.body);
   try {
+    // Get admin user ID for reporter
+    const { data: adminUser, error: adminError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', 'admin@dsp.com')
+      .single();
+
+    if (adminError || !adminUser) {
+      console.error('❌ Error finding admin user:', adminError);
+      return res.status(500).json({ message: 'Failed to find admin user' });
+    }
+
     const incidentData = {
-      ...req.body,
-      reporter_id: 'admin-user-id', // In production, get from JWT token
+      title: req.body.title,
+      description: req.body.description,
+      reporter_id: adminUser.id, // Use real admin UUID
+      incident_type: req.body.incidentType, // Map incidentType to incident_type
+      severity: req.body.severity,
       status: 'reported',
+      priority: req.body.priority,
+      infringed_content: req.body.infringedContent,
+      infringed_urls: req.body.infringedUrls || [],
+      infringer_info: req.body.infringerInfo || {},
+      tags: req.body.tags || [],
+      evidence_files: req.body.evidenceFiles || [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -539,7 +688,11 @@ app.post('/api/incidents', async (req, res) => {
     const { data: incident, error } = await supabase
       .from('incidents')
       .insert([incidentData])
-      .select()
+      .select(`
+        *,
+        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
+        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
+      `)
       .single();
 
     if (error) {
@@ -548,7 +701,27 @@ app.post('/api/incidents', async (req, res) => {
     }
 
     console.log('✅ Incident created:', incident.id);
-    res.json({ incident });
+    res.json({ 
+      incident: {
+        id: incident.id,
+        title: incident.title,
+        description: incident.description,
+        incidentType: incident.incident_type,
+        status: incident.status,
+        priority: incident.priority,
+        severity: incident.severity,
+        caseNumber: incident.case_number,
+        reporter: incident.reporter,
+        assignedTo: incident.assigned_user,
+        infringedContent: incident.infringed_content,
+        infringedUrls: incident.infringed_urls,
+        infringerInfo: incident.infringer_info,
+        tags: incident.tags,
+        evidenceFiles: incident.evidence_files,
+        createdAt: incident.created_at,
+        updatedAt: incident.updated_at
+      }
+    });
   } catch (error) {
     console.error('❌ Create incident error:', error);
     res.status(500).json({ message: 'Failed to create incident' });
@@ -612,12 +785,12 @@ app.use((err, req, res, next) => {
 // 404 handler with detailed logging
 app.use('*', (req, res) => {
   console.log('❌ Route not found:', req.method, req.originalUrl);
-  console.log('🔍 Available routes: /test, /api/health, /api/auth/login, /api/auth/me, /api/users, /api/cases, /api/cases/stats/dashboard, /api/incidents');
+  console.log('🔍 Available routes: /test, /api/health, /api/auth/login, /api/auth/me, /api/users, /api/users/stats/overview, /api/cases, /api/cases/stats/dashboard, /api/incidents, /api/upload, /api/upload/multiple');
   res.status(404).json({ 
     message: 'Route not found',
     method: req.method,
     path: req.originalUrl,
-    availableRoutes: ['/test', '/api/health', '/api/auth/login', '/api/auth/me', '/api/users', '/api/cases', '/api/cases/stats/dashboard', '/api/incidents']
+    availableRoutes: ['/test', '/api/health', '/api/auth/login', '/api/auth/me', '/api/users', '/api/users/stats/overview', '/api/cases', '/api/cases/stats/dashboard', '/api/incidents', '/api/upload', '/api/upload/multiple']
   });
 });
 
