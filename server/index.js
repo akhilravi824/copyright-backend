@@ -6,7 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const connectDB = require('./config/database');
+const databaseService = require('./config/databaseService');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -69,12 +69,24 @@ app.use('*', (req, res) => {
 const startServer = async () => {
   try {
     // Connect to database
-    await connectDB();
+    await databaseService.connect();
+    
+    // Create database indexes if using MongoDB
+    if (process.env.DATABASE_TYPE !== 'supabase') {
+      const mongoose = require('mongoose');
+      const User = require('./models/User');
+      const Incident = require('./models/Incident');
+      
+      await User.createIndexes();
+      await Incident.createIndexes();
+      console.log('✅ Database indexes created successfully');
+    }
     
     // Start server
     app.listen(PORT, () => {
       console.log(`🚀 DSP Brand Protection API running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🗄️  Database: ${process.env.DATABASE_TYPE || 'mongodb'}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
