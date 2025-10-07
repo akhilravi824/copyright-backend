@@ -108,15 +108,39 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
-// Users endpoint
+// Users endpoints
 app.get('/api/users', async (req, res) => {
   console.log('👥 Users list requested');
   try {
-    const { data: users, error } = await supabase
+    const { search, role, department, status, page = 1, limit = 10 } = req.query;
+    
+    let query = supabase
       .from('users')
       .select('*')
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (search) {
+      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+    if (role) {
+      query = query.eq('role', role);
+    }
+    if (department) {
+      query = query.eq('department', department);
+    }
+    if (status === 'active') {
+      query = query.eq('is_active', true);
+    } else if (status === 'inactive') {
+      query = query.eq('is_active', false);
+    }
+
+    // Apply pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+
+    const { data: users, error, count } = await query;
 
     if (error) {
       console.error('❌ Error fetching users:', error);
@@ -133,13 +157,204 @@ app.get('/api/users', async (req, res) => {
         role: user.role,
         department: user.department,
         isActive: user.is_active,
-        createdAt: user.created_at
+        createdAt: user.created_at,
+        lastLogin: user.last_login,
+        lockUntil: user.lock_until,
+        invitationStatus: user.invitation_status,
+        invitationExpires: user.invitation_expires,
+        jobTitle: user.job_title,
+        phone: user.phone
       })),
-      total: users.length
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count || users.length,
+        pages: Math.ceil((count || users.length) / limit)
+      }
     });
   } catch (error) {
     console.error('❌ Users endpoint error:', error);
     res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
+app.get('/api/users/stats/overview', async (req, res) => {
+  console.log('📊 User stats requested');
+  try {
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('is_active, department');
+
+    if (error) {
+      console.error('❌ Error fetching user stats:', error);
+      return res.status(500).json({ message: 'Failed to fetch user stats' });
+    }
+
+    const stats = {
+      totalUsers: users.length,
+      activeUsers: users.filter(u => u.is_active).length,
+      inactiveUsers: users.filter(u => !u.is_active).length,
+      usersByDepartment: Object.entries(
+        users.reduce((acc, user) => {
+          acc[user.department] = (acc[user.department] || 0) + 1;
+          return acc;
+        }, {})
+      ).map(([department, count]) => ({ department, count }))
+    };
+
+    console.log('✅ User stats calculated:', stats);
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ User stats error:', error);
+    res.status(500).json({ message: 'Failed to fetch user stats' });
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  console.log('➕ Creating new user:', req.body);
+  try {
+    const userData = {
+      ...req.body,
+      first_name: req.body.firstName,
+      last_name: req.body.lastName,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert([userData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error creating user:', error);
+      return res.status(500).json({ message: 'Failed to create user' });
+    }
+
+    console.log('✅ User created:', user.id);
+    res.json({ user });
+  } catch (error) {
+    console.error('❌ Create user error:', error);
+    res.status(500).json({ message: 'Failed to create user' });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  console.log('✏️ Updating user:', req.params.id);
+  try {
+    const updateData = {
+      ...req.body,
+      first_name: req.body.firstName,
+      last_name: req.body.lastName,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error updating user:', error);
+      return res.status(500).json({ message: 'Failed to update user' });
+    }
+
+    console.log('✅ User updated:', user.id);
+    res.json({ user });
+  } catch (error) {
+    console.error('❌ Update user error:', error);
+    res.status(500).json({ message: 'Failed to update user' });
+  }
+});
+
+app.put('/api/users/:id/password', async (req, res) => {
+  console.log('🔑 Changing password for user:', req.params.id);
+  try {
+    // In a real app, you'd hash the password here
+    const { newPassword } = req.body;
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({ 
+        password: newPassword, // In production, hash this password
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error changing password:', error);
+      return res.status(500).json({ message: 'Failed to change password' });
+    }
+
+    console.log('✅ Password changed for user:', user.id);
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('❌ Change password error:', error);
+    res.status(500).json({ message: 'Failed to change password' });
+  }
+});
+
+app.put('/api/users/:id/lock', async (req, res) => {
+  console.log('🔒 Toggling lock for user:', req.params.id);
+  try {
+    const { locked } = req.body;
+    const lockUntil = locked ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null; // 24 hours
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({ 
+        lock_until: lockUntil,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error toggling lock:', error);
+      return res.status(500).json({ message: 'Failed to toggle lock' });
+    }
+
+    console.log('✅ Lock toggled for user:', user.id);
+    res.json({ 
+      message: locked ? 'User locked successfully' : 'User unlocked successfully',
+      user 
+    });
+  } catch (error) {
+    console.error('❌ Toggle lock error:', error);
+    res.status(500).json({ message: 'Failed to toggle lock' });
+  }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  console.log('🗑️ Deactivating user:', req.params.id);
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .update({ 
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error deactivating user:', error);
+      return res.status(500).json({ message: 'Failed to deactivate user' });
+    }
+
+    console.log('✅ User deactivated:', user.id);
+    res.json({ message: 'User deactivated successfully' });
+  } catch (error) {
+    console.error('❌ Deactivate user error:', error);
+    res.status(500).json({ message: 'Failed to deactivate user' });
   }
 });
 
