@@ -8,7 +8,7 @@ import {
   FileText,
   FolderOpen,
   FileCheck,
-  Template,
+  LayoutTemplate,
   Search,
   BarChart3,
   Users,
@@ -28,7 +28,7 @@ const Layout = ({ children }) => {
     { name: 'Incidents', href: '/incidents', icon: FileText },
     { name: 'Cases', href: '/cases', icon: FolderOpen },
     { name: 'Documents', href: '/documents', icon: FileCheck },
-    { name: 'Templates', href: '/templates', icon: Template },
+    { name: 'Templates', href: '/templates', icon: LayoutTemplate },
     { name: 'Monitoring', href: '/monitoring', icon: Search },
     { name: 'Reports', href: '/reports', icon: BarChart3 },
   ];

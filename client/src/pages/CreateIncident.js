@@ -39,7 +39,13 @@ const CreateIncident = () => {
 
   const addUrl = () => {
     if (newUrl.url.trim()) {
-      setInfringedUrls([...infringedUrls, { ...newUrl, id: Date.now() }]);
+      // Auto-add https:// if no protocol is provided
+      let url = newUrl.url.trim();
+      if (!url.match(/^https?:\/\//i)) {
+        url = `https://${url}`;
+      }
+      
+      setInfringedUrls([...infringedUrls, { ...newUrl, url, id: Date.now() }]);
       setNewUrl({ url: '', description: '' });
     }
   };
@@ -65,9 +71,16 @@ const CreateIncident = () => {
   };
 
   const onSubmit = async (data) => {
+    // Validate that at least one URL is added
+    if (infringedUrls.length === 0) {
+      toast.error('Please add at least one infringed URL');
+      return;
+    }
+
     setLoading(true);
     
     try {
+      
       const formData = new FormData();
       
       // Add form fields
@@ -99,7 +112,11 @@ const CreateIncident = () => {
       });
 
       toast.success('Incident reported successfully');
-      navigate(`/incidents/${response.data.incident._id}`);
+      
+      // Navigate to the incident detail page
+      const incidentId = response.data.incident._id;
+      navigate(`/incidents/${incidentId}`);
+      
     } catch (error) {
       console.error('Error creating incident:', error);
       toast.error(error.response?.data?.message || 'Failed to create incident');
@@ -109,7 +126,7 @@ const CreateIncident = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 overflow-y-auto max-h-screen">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Report New Incident</h1>
         <p className="mt-1 text-sm text-gray-500">
@@ -117,7 +134,18 @@ const CreateIncident = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {loading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <div className="flex items-center space-x-3">
+              <div className="loading-spinner" />
+              <span>Creating incident...</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-8">
         {/* Basic Information */}
         <div className="card">
           <div className="card-header">
@@ -197,6 +225,28 @@ const CreateIncident = () => {
 
             <div>
               <label className="form-label">Infringed URLs</label>
+              <p className="mt-1 text-xs text-gray-500 mb-2">
+                Enter URLs where DSP content is being infringed. You can enter just the domain (e.g., "example.com") - "https://" will be added automatically.
+              </p>
+              {infringedUrls.length === 0 && (
+                <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-blue-800">
+                        Add URLs where DSP content is being infringed
+                      </p>
+                      <p className="mt-1 text-sm text-blue-700">
+                        Enter the website URLs below and click the + button to add them to your report.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {infringedUrls.map((url) => (
                   <div key={url.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
@@ -217,13 +267,15 @@ const CreateIncident = () => {
                   </div>
                 ))}
                 
-                <div className="flex space-x-2">
+                <div className="space-y-2 sm:space-y-0 sm:flex sm:space-x-2">
                   <input
-                    type="url"
+                    type="text"
                     value={newUrl.url}
                     onChange={(e) => setNewUrl({ ...newUrl, url: e.target.value })}
                     className="form-input flex-1"
-                    placeholder="https://example.com/infringing-content"
+                    placeholder="example.com/infringing-content (https:// will be added automatically)"
+                    autoComplete="off"
+                    spellCheck="false"
                   />
                   <input
                     type="text"
@@ -235,7 +287,7 @@ const CreateIncident = () => {
                   <button
                     type="button"
                     onClick={addUrl}
-                    className="btn-outline"
+                    className="btn-primary w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                   </button>

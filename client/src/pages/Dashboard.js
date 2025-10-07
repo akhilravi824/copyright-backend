@@ -9,7 +9,8 @@ import {
   TrendingUp,
   Users,
   Shield,
-  Activity
+  Activity,
+  Search
 } from 'lucide-react';
 import {
   BarChart,

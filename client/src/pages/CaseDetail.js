@@ -1,7 +1,8 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import {
   ArrowLeft,
   Calendar,
@@ -19,11 +20,13 @@ import {
   Edit,
   Send,
   Download,
-  Assign
+  UserPlus,
+  Eye
 } from 'lucide-react';
 
 const CaseDetail = () => {
   const { id } = useParams();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery(
     ['case', id],
@@ -32,6 +35,23 @@ const CaseDetail = () => {
       enabled: !!id,
     }
   );
+
+  const updateStatusMutation = useMutation(
+    (status) => axios.put(`/api/cases/${id}/status`, { status }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['case', id]);
+        toast.success('Case status updated successfully');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || 'Failed to update status');
+      },
+    }
+  );
+
+  const handleStatusChange = (newStatus) => {
+    updateStatusMutation.mutate(newStatus);
+  };
 
   if (isLoading) {
     return (
@@ -109,7 +129,7 @@ const CaseDetail = () => {
         </div>
         <div className="flex space-x-2">
           <button className="btn-outline">
-            <Assign className="h-4 w-4 mr-2" />
+            <UserPlus className="h-4 w-4 mr-2" />
             Assign
           </button>
           <button className="btn-outline">
@@ -273,6 +293,19 @@ const CaseDetail = () => {
                 <div className="mb-3">
                   {getStatusBadge(caseData.status)}
                 </div>
+                <select
+                  value={caseData.status}
+                  onChange={(e) => handleStatusChange(e.target.value)}
+                  className="form-select"
+                  disabled={updateStatusMutation.isLoading}
+                >
+                  <option value="reported">Reported</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="resolved">Resolved</option>
+                  <option value="closed">Closed</option>
+                  <option value="escalated">Escalated</option>
+                </select>
               </div>
 
               <div className="space-y-2">

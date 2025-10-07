@@ -48,8 +48,32 @@ const incidentValidation = [
   body('incidentType').isIn(['copyright_infringement', 'trademark_violation', 'impersonation', 'unauthorized_distribution', 'other']).withMessage('Invalid incident type'),
   body('severity').optional().isIn(['low', 'medium', 'high', 'critical']).withMessage('Invalid severity level'),
   body('infringedContent').trim().isLength({ min: 5 }).withMessage('Infringed content description is required'),
-  body('infringedUrls').isArray().withMessage('Infringed URLs must be an array'),
-  body('infringedUrls.*.url').isURL().withMessage('Invalid URL format'),
+  body('infringedUrls').custom((value) => {
+    try {
+      const urls = typeof value === 'string' ? JSON.parse(value) : value;
+      if (!Array.isArray(urls)) {
+        throw new Error('Infringed URLs must be an array');
+      }
+      for (const url of urls) {
+        if (!url.url || typeof url.url !== 'string') {
+          throw new Error('Each URL must have a valid url field');
+        }
+        // Basic URL validation - try with https:// if no protocol
+        let urlToValidate = url.url;
+        if (!urlToValidate.match(/^https?:\/\//i)) {
+          urlToValidate = `https://${urlToValidate}`;
+        }
+        try {
+          new URL(urlToValidate);
+        } catch {
+          throw new Error(`Invalid URL format: ${url.url}`);
+        }
+      }
+      return true;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }),
   body('infringerInfo.name').optional().trim().isLength({ min: 2 }).withMessage('Infringer name must be at least 2 characters'),
   body('infringerInfo.email').optional().isEmail().withMessage('Invalid email format'),
   body('infringerInfo.website').optional().isURL().withMessage('Invalid website URL')
@@ -91,6 +115,17 @@ router.post('/', auth, requirePermission('create_incidents'), incidentValidation
       }
     }
 
+    // Process URLs and infringer info
+    const processedUrls = typeof infringedUrls === 'string' ? JSON.parse(infringedUrls) : infringedUrls || [];
+    const processedInfringerInfo = typeof infringerInfo === 'string' ? JSON.parse(infringerInfo) : infringerInfo || {};
+    const processedTags = typeof tags === 'string' ? JSON.parse(tags) : tags || [];
+    
+    // Auto-add https:// to URLs that don't have a protocol
+    const normalizedUrls = processedUrls.map(urlObj => ({
+      ...urlObj,
+      url: urlObj.url.match(/^https?:\/\//i) ? urlObj.url : `https://${urlObj.url}`
+    }));
+
     // Create incident
     const incident = new Incident({
       title,
@@ -99,10 +134,10 @@ router.post('/', auth, requirePermission('create_incidents'), incidentValidation
       incidentType,
       severity,
       infringedContent,
-      infringedUrls: JSON.parse(infringedUrls || '[]'),
-      infringerInfo: JSON.parse(infringerInfo || '{}'),
+      infringedUrls: normalizedUrls,
+      infringerInfo: processedInfringerInfo,
       evidence,
-      tags,
+      tags: processedTags,
       priority,
       status: 'reported'
     });
