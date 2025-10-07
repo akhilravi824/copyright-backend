@@ -653,8 +653,10 @@ app.get('/api/incidents', async (req, res) => {
   }
 });
 
-app.post('/api/incidents', async (req, res) => {
+app.post('/api/incidents', upload.array('evidenceFiles', 10), async (req, res) => {
   console.log('➕ New incident creation:', req.body);
+  console.log('📁 Files uploaded:', req.files?.length || 0);
+  
   try {
     // Get admin user ID for reporter
     const { data: adminUser, error: adminError } = await supabase
@@ -668,6 +670,73 @@ app.post('/api/incidents', async (req, res) => {
       return res.status(500).json({ message: 'Failed to find admin user' });
     }
 
+    // Parse JSON fields that come as strings from multipart/form-data
+    let infringedUrls = [];
+    let infringerInfo = {};
+    let tags = [];
+    let evidenceFiles = [];
+
+    try {
+      if (req.body.infringedUrls) {
+        infringedUrls = typeof req.body.infringedUrls === 'string' 
+          ? JSON.parse(req.body.infringedUrls) 
+          : req.body.infringedUrls;
+      }
+      if (req.body.infringerInfo) {
+        infringerInfo = typeof req.body.infringerInfo === 'string'
+          ? JSON.parse(req.body.infringerInfo)
+          : req.body.infringerInfo;
+      }
+      if (req.body.tags) {
+        tags = typeof req.body.tags === 'string'
+          ? JSON.parse(req.body.tags)
+          : req.body.tags;
+      }
+    } catch (parseError) {
+      console.error('❌ Error parsing JSON fields:', parseError);
+      return res.status(400).json({ message: 'Invalid JSON data in form fields' });
+    }
+
+    // Handle file uploads to Supabase Storage
+    if (req.files && req.files.length > 0) {
+      console.log('📤 Uploading files to Supabase Storage...');
+      for (const file of req.files) {
+        try {
+          const timestamp = Date.now();
+          const ext = path.extname(file.originalname);
+          const filename = `evidence-${timestamp}-${Math.floor(Math.random() * 1000000000)}${ext}`;
+
+          const { data, error } = await supabase.storage
+            .from('evidence')
+            .upload(filename, file.buffer, {
+              contentType: file.mimetype,
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (error) {
+            console.error('❌ Error uploading file:', file.originalname, error);
+            continue;
+          }
+
+          const { data: urlData } = supabase.storage
+            .from('evidence')
+            .getPublicUrl(filename);
+
+          evidenceFiles.push({
+            filename: filename,
+            originalName: file.originalname,
+            size: file.size,
+            mimetype: file.mimetype,
+            url: urlData.publicUrl,
+            uploadedAt: new Date().toISOString()
+          });
+        } catch (fileError) {
+          console.error('❌ File upload error:', fileError);
+        }
+      }
+    }
+
     const incidentData = {
       title: req.body.title,
       description: req.body.description,
@@ -677,10 +746,10 @@ app.post('/api/incidents', async (req, res) => {
       status: 'reported',
       priority: req.body.priority,
       infringed_content: req.body.infringedContent,
-      infringed_urls: req.body.infringedUrls || [],
-      infringer_info: req.body.infringerInfo || {},
-      tags: req.body.tags || [],
-      evidence_files: req.body.evidenceFiles || [],
+      infringed_urls: infringedUrls,
+      infringer_info: infringerInfo,
+      tags: tags,
+      evidence_files: evidenceFiles,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
