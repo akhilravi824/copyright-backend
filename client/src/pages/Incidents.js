@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import api from '../api/api';
 import { Link } from 'react-router-dom';
 import {
   FileText,
@@ -27,7 +27,7 @@ const Incidents = () => {
 
   const { data, isLoading, error } = useQuery(
     ['incidents', filters],
-    () => axios.get('/api/incidents', { params: filters }).then(res => res.data),
+    () => api.get('/api/incidents', { params: filters }).then(res => res.data),
     {
       keepPreviousData: true,
     }

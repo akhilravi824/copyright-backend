@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import api from '../api/api';
 import {
   FileText,
   AlertTriangle,
@@ -30,7 +30,7 @@ import {
 const Dashboard = () => {
   const { data: stats, isLoading } = useQuery(
     'dashboard-stats',
-    () => axios.get('/api/cases/stats/dashboard').then(res => res.data),
+    () => api.get('/api/cases/stats/dashboard').then(res => res.data),
     {
       refetchInterval: 30000, // Refetch every 30 seconds
     }

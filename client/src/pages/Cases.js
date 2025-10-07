@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from 'react-query';
-import axios from 'axios';
+import api from '../api/api';
 import { Link, useLocation } from 'react-router-dom';
 import SearchSuggestions from '../components/SearchSuggestions';
 import {
@@ -35,7 +35,7 @@ const Cases = () => {
 
   const { data, isLoading, error } = useQuery(
     ['cases', filters],
-    () => axios.get('/api/cases', { params: filters }).then(res => res.data),
+    () => api.get('/api/cases', { params: filters }).then(res => res.data),
     {
       keepPreviousData: true,
     }
