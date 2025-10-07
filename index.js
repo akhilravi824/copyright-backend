@@ -40,21 +40,35 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('combined'));
 
 // Routes
-if (process.env.DATABASE_TYPE === 'supabase') {
-  app.use('/api/auth', require('./routes/auth-supabase')); // Use Supabase auth routes
-  app.use('/api/incidents', require('./routes/incidents-supabase')); // Use Supabase incident routes
-  // Add other Supabase routes as they are converted
-  app.use('/api/users', require('./routes/users-supabase'));
-} else {
-  app.use('/api/auth', require('./routes/auth')); // Original MongoDB auth routes
-  app.use('/api/incidents', require('./routes/incidents')); // Original MongoDB incident routes
-  app.use('/api/users', require('./routes/users'));
+console.log('Setting up routes...');
+console.log('DATABASE_TYPE:', process.env.DATABASE_TYPE);
+
+try {
+  if (process.env.DATABASE_TYPE === 'supabase') {
+    console.log('Using Supabase routes');
+    app.use('/api/auth', require('./routes/auth-supabase')); // Use Supabase auth routes
+    app.use('/api/incidents', require('./routes/incidents-supabase')); // Use Supabase incident routes
+    // Add other Supabase routes as they are converted
+    app.use('/api/users', require('./routes/users-supabase'));
+  } else {
+    console.log('Using MongoDB routes');
+    app.use('/api/auth', require('./routes/auth')); // Original MongoDB auth routes
+    app.use('/api/incidents', require('./routes/incidents')); // Original MongoDB incident routes
+    app.use('/api/users', require('./routes/users'));
+  }
+} catch (error) {
+  console.error('Error setting up routes:', error);
 }
 app.use('/api/cases', require('./routes/cases'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/monitoring', require('./routes/monitoring'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/templates', require('./routes/templates'));
+
+// Simple test endpoint
+app.get('/test', (req, res) => {
+  res.json({ message: 'Backend is working!', timestamp: new Date().toISOString() });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
