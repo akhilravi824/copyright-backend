@@ -72,6 +72,28 @@ app.get('/api/auth/me', (req, res) => {
   }
 });
 
+// Cases endpoints
+app.get('/api/cases', (req, res) => {
+  console.log('📋 Cases list requested');
+  res.json({
+    cases: [],
+    total: 0,
+    message: 'No cases found'
+  });
+});
+
+app.get('/api/cases/stats/dashboard', (req, res) => {
+  console.log('📊 Dashboard stats requested');
+  res.json({
+    totalCases: 0,
+    activeCases: 0,
+    resolvedCases: 0,
+    pendingCases: 0,
+    recentActivity: [],
+    monthlyStats: []
+  });
+});
+
 // Incidents endpoints
 app.get('/api/incidents', (req, res) => {
   console.log('📋 Incidents list requested');
@@ -117,12 +139,12 @@ app.use((err, req, res, next) => {
 // 404 handler with detailed logging
 app.use('*', (req, res) => {
   console.log('❌ Route not found:', req.method, req.originalUrl);
-  console.log('🔍 Available routes: /test, /api/health, /api/auth/login, /api/auth/me, /api/incidents');
+  console.log('🔍 Available routes: /test, /api/health, /api/auth/login, /api/auth/me, /api/cases, /api/cases/stats/dashboard, /api/incidents');
   res.status(404).json({ 
     message: 'Route not found',
     method: req.method,
     path: req.originalUrl,
-    availableRoutes: ['/test', '/api/health', '/api/auth/login', '/api/auth/me', '/api/incidents']
+    availableRoutes: ['/test', '/api/health', '/api/auth/login', '/api/auth/me', '/api/cases', '/api/cases/stats/dashboard', '/api/incidents']
   });
 });
 
