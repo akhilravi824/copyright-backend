@@ -38,6 +38,7 @@ app.use(morgan('combined'));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/incidents', require('./routes/incidents'));
 app.use('/api/cases', require('./routes/cases'));
 app.use('/api/documents', require('./routes/documents'));

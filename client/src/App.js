@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import UserRegistration from './pages/UserRegistration';
 import Dashboard from './pages/Dashboard';
 import Incidents from './pages/Incidents';
 import IncidentDetail from './pages/IncidentDetail';
@@ -29,7 +30,13 @@ function App() {
   }
 
   if (!user) {
-    return <Login />;
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<UserRegistration />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
   }
 
   return (

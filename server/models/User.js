@@ -22,7 +22,6 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
     minlength: 6
   },
   
@@ -63,6 +62,16 @@ const userSchema = new mongoose.Schema({
   emailVerificationToken: String,
   emailVerified: { type: Boolean, default: false },
   
+  // Invitation System
+  invitationToken: String,
+  invitationExpires: Date,
+  invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  invitationStatus: {
+    type: String,
+    enum: ['pending', 'accepted', 'expired'],
+    default: 'pending'
+  },
+  
   // Activity Tracking
   loginAttempts: { type: Number, default: 0 },
   lockUntil: Date
@@ -74,6 +83,8 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ department: 1 });
+userSchema.index({ invitationToken: 1 });
+userSchema.index({ invitationStatus: 1 });
 
 // Virtual for full name
 userSchema.virtual('fullName').get(function() {
@@ -143,6 +154,38 @@ userSchema.methods.canPerformAction = function(action) {
   
   const userPermissions = permissions[this.role] || [];
   return userPermissions.includes('*') || userPermissions.includes(action);
+};
+
+// Method to generate invitation token
+userSchema.methods.generateInvitationToken = function() {
+  const crypto = require('crypto');
+  this.invitationToken = crypto.randomBytes(32).toString('hex');
+  this.invitationExpires = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+  this.invitationStatus = 'pending';
+  return this.invitationToken;
+};
+
+// Method to check if invitation is valid
+userSchema.methods.isInvitationValid = function() {
+  return this.invitationStatus === 'pending' && 
+         this.invitationExpires && 
+         this.invitationExpires > Date.now();
+};
+
+// Method to accept invitation
+userSchema.methods.acceptInvitation = function(password) {
+  if (!this.isInvitationValid()) {
+    throw new Error('Invalid or expired invitation');
+  }
+  
+  this.password = password;
+  this.invitationStatus = 'accepted';
+  this.invitationToken = undefined;
+  this.invitationExpires = undefined;
+  this.emailVerified = true;
+  this.isActive = true;
+  
+  return this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);
