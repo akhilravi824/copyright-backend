@@ -1,0 +1,467 @@
+import React from 'react';
+import { useQuery } from 'react-query';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
+import {
+  FileText,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  User,
+  Calendar,
+  Search,
+  Filter,
+  Eye,
+  BarChart3,
+  TrendingUp,
+  Shield
+} from 'lucide-react';
+
+const Cases = () => {
+  const [filters, setFilters] = React.useState({
+    status: '',
+    incidentType: '',
+    severity: '',
+    priority: '',
+    assignedTo: '',
+    search: '',
+    view: 'all',
+    page: 1
+  });
+
+  const { data, isLoading, error } = useQuery(
+    ['cases', filters],
+    () => axios.get('/api/cases', { params: filters }).then(res => res.data),
+    {
+      keepPreviousData: true,
+    }
+  );
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1
+    }));
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      reported: { color: 'badge-info', icon: Clock },
+      under_review: { color: 'badge-warning', icon: Eye },
+      in_progress: { color: 'badge-warning', icon: Clock },
+      resolved: { color: 'badge-success', icon: CheckCircle },
+      closed: { color: 'badge-gray', icon: CheckCircle },
+      escalated: { color: 'badge-danger', icon: AlertTriangle }
+    };
+    
+    const config = statusConfig[status] || statusConfig.reported;
+    const Icon = config.icon;
+    
+    return (
+      <span className={`badge ${config.color}`}>
+        <Icon className="h-3 w-3 mr-1" />
+        {status.replace('_', ' ')}
+      </span>
+    );
+  };
+
+  const getSeverityBadge = (severity) => {
+    const severityConfig = {
+      low: 'badge-gray',
+      medium: 'badge-info',
+      high: 'badge-warning',
+      critical: 'badge-danger'
+    };
+    
+    return (
+      <span className={`badge ${severityConfig[severity]}`}>
+        {severity}
+      </span>
+    );
+  };
+
+  const getPriorityBadge = (priority) => {
+    const priorityConfig = {
+      low: 'badge-gray',
+      normal: 'badge-info',
+      high: 'badge-warning',
+      urgent: 'badge-danger'
+    };
+    
+    return (
+      <span className={`badge ${priorityConfig[priority]}`}>
+        {priority}
+      </span>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900">Error loading cases</h3>
+        <p className="mt-1 text-sm text-gray-500">{error.message}</p>
+      </div>
+    );
+  }
+
+  const { cases, pagination } = data || { cases: [], pagination: {} };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Case Management</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Manage and track all IP-related cases and their progress
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <button className="btn-outline">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Reports
+          </button>
+          <button className="btn-outline">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Analytics
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="card">
+          <div className="card-body">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="p-3 rounded-md bg-blue-500">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Total Cases</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">{pagination?.total || 0}</dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="p-3 rounded-md bg-yellow-500">
+                  <Clock className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Open Cases</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">
+                    {cases.filter(c => ['reported', 'under_review', 'in_progress'].includes(c.status)).length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="p-3 rounded-md bg-green-500">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Resolved</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">
+                    {cases.filter(c => ['resolved', 'closed'].includes(c.status)).length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-body">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="p-3 rounded-md bg-red-500">
+                  <AlertTriangle className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Critical</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">
+                    {cases.filter(c => c.severity === 'critical').length}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="text-lg font-medium text-gray-900">Filters & Search</h3>
+        </div>
+        <div className="card-body">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div>
+              <label className="form-label">View</label>
+              <select
+                className="form-select"
+                value={filters.view}
+                onChange={(e) => handleFilterChange('view', e.target.value)}
+              >
+                <option value="all">All Cases</option>
+                <option value="my">My Cases</option>
+                <option value="assigned">Assigned to Me</option>
+                <option value="open">Open Cases</option>
+                <option value="resolved">Resolved Cases</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="form-label">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  className="form-input pl-10"
+                  placeholder="Search cases..."
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="form-label">Status</label>
+              <select
+                className="form-select"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="reported">Reported</option>
+                <option value="under_review">Under Review</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+                <option value="escalated">Escalated</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="form-label">Type</label>
+              <select
+                className="form-select"
+                value={filters.incidentType}
+                onChange={(e) => handleFilterChange('incidentType', e.target.value)}
+              >
+                <option value="">All Types</option>
+                <option value="copyright_infringement">Copyright Infringement</option>
+                <option value="trademark_violation">Trademark Violation</option>
+                <option value="impersonation">Impersonation</option>
+                <option value="unauthorized_distribution">Unauthorized Distribution</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="form-label">Severity</label>
+              <select
+                className="form-select"
+                value={filters.severity}
+                onChange={(e) => handleFilterChange('severity', e.target.value)}
+              >
+                <option value="">All Severities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={() => setFilters({
+                  status: '',
+                  incidentType: '',
+                  severity: '',
+                  priority: '',
+                  assignedTo: '',
+                  search: '',
+                  view: 'all',
+                  page: 1
+                })}
+                className="btn-outline w-full"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Clear Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cases Table */}
+      <div className="card">
+        <div className="overflow-hidden">
+          <table className="table">
+            <thead className="table-header">
+              <tr>
+                <th className="table-header-cell">Case #</th>
+                <th className="table-header-cell">Title</th>
+                <th className="table-header-cell">Type</th>
+                <th className="table-header-cell">Status</th>
+                <th className="table-header-cell">Severity</th>
+                <th className="table-header-cell">Priority</th>
+                <th className="table-header-cell">Assigned To</th>
+                <th className="table-header-cell">Date</th>
+                <th className="table-header-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="table-body">
+              {cases.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="table-cell text-center py-12">
+                    <div className="empty-state">
+                      <FileText className="empty-state-icon" />
+                      <h3 className="empty-state-title">No cases found</h3>
+                      <p className="empty-state-description">
+                        {filters.search || filters.status || filters.incidentType || filters.severity
+                          ? 'Try adjusting your filters to see more results.'
+                          : 'No cases match your current view.'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                cases.map((case_) => (
+                  <tr key={case_._id} className="table-row">
+                    <td className="table-cell font-mono text-sm">
+                      {case_.caseNumber}
+                    </td>
+                    <td className="table-cell">
+                      <div>
+                        <div className="font-medium text-gray-900 truncate max-w-xs">
+                          {case_.title}
+                        </div>
+                        <div className="text-sm text-gray-500 truncate max-w-xs">
+                          {case_.infringedContent}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      <span className="text-sm text-gray-900">
+                        {case_.incidentType.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="table-cell">
+                      {getStatusBadge(case_.status)}
+                    </td>
+                    <td className="table-cell">
+                      {getSeverityBadge(case_.severity)}
+                    </td>
+                    <td className="table-cell">
+                      {getPriorityBadge(case_.priority)}
+                    </td>
+                    <td className="table-cell">
+                      {case_.assignedTo ? (
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 text-gray-400 mr-2" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {case_.assignedTo.firstName} {case_.assignedTo.lastName}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {case_.assignedTo.email}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">Unassigned</span>
+                      )}
+                    </td>
+                    <td className="table-cell">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-sm text-gray-900">
+                          {new Date(case_.reportedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      <Link
+                        to={`/cases/${case_._id}`}
+                        className="btn-outline btn-sm"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pagination && pagination.pages > 1 && (
+          <div className="card-footer">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {((pagination.current - 1) * pagination.limit) + 1} to{' '}
+                {Math.min(pagination.current * pagination.limit, pagination.total)} of{' '}
+                {pagination.total} results
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleFilterChange('page', pagination.current - 1)}
+                  disabled={pagination.current === 1}
+                  className="btn-outline btn-sm disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="flex items-center px-3 py-1 text-sm text-gray-700">
+                  Page {pagination.current} of {pagination.pages}
+                </span>
+                <button
+                  onClick={() => handleFilterChange('page', pagination.current + 1)}
+                  disabled={pagination.current === pagination.pages}
+                  className="btn-outline btn-sm disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Cases;
