@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import axios from 'axios';
+import api from '../api/api';
 import toast from 'react-hot-toast';
 import {
   Users,
@@ -52,7 +52,7 @@ const UsersPage = () => {
         ...(selectedDepartment && { department: selectedDepartment }),
         ...(selectedStatus && { status: selectedStatus })
       });
-      return axios.get(`/api/users?${params}`).then(res => res.data);
+      return api.get(`/api/users?${params}`).then(res => res.data);
     },
     {
       keepPreviousData: true
@@ -62,12 +62,12 @@ const UsersPage = () => {
   // Fetch user statistics
   const { data: statsData } = useQuery(
     'userStats',
-    () => axios.get('/api/users/stats/overview').then(res => res.data)
+    () => api.get('/api/users/stats/overview').then(res => res.data)
   );
 
   // Update user mutation
   const updateUserMutation = useMutation(
-    ({ userId, userData }) => axios.put(`/api/users/${userId}`, userData),
+    ({ userId, userData }) => api.put(`/api/users/${userId}`, userData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -84,7 +84,7 @@ const UsersPage = () => {
 
   // Change password mutation
   const changePasswordMutation = useMutation(
-    ({ userId, newPassword }) => axios.put(`/api/users/${userId}/password`, { newPassword }),
+    ({ userId, newPassword }) => api.put(`/api/users/${userId}/password`, { newPassword }),
     {
       onSuccess: () => {
         toast.success('Password changed successfully');
@@ -99,7 +99,7 @@ const UsersPage = () => {
 
   // Lock/Unlock user mutation
   const toggleLockMutation = useMutation(
-    ({ userId, locked }) => axios.put(`/api/users/${userId}/lock`, { locked }),
+    ({ userId, locked }) => api.put(`/api/users/${userId}/lock`, { locked }),
     {
       onSuccess: (response) => {
         queryClient.invalidateQueries('users');
@@ -114,7 +114,7 @@ const UsersPage = () => {
 
   // Create user mutation
   const createUserMutation = useMutation(
-    (userData) => axios.post('/api/users', userData),
+    (userData) => api.post('/api/users', userData),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -130,7 +130,7 @@ const UsersPage = () => {
 
   // Deactivate user mutation
   const deactivateUserMutation = useMutation(
-    (userId) => axios.delete(`/api/users/${userId}`),
+    (userId) => api.delete(`/api/users/${userId}`),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('users');
@@ -155,12 +155,12 @@ const UsersPage = () => {
 
   const handleToggleLock = (user) => {
     const isLocked = user.lockUntil && user.lockUntil > Date.now();
-    toggleLockMutation.mutate({ userId: user._id, locked: !isLocked });
+    toggleLockMutation.mutate({ userId: user.id, locked: !isLocked });
   };
 
   const handleDeactivateUser = (user) => {
     if (window.confirm(`Are you sure you want to deactivate ${user.firstName} ${user.lastName}?`)) {
-      deactivateUserMutation.mutate(user._id);
+      deactivateUserMutation.mutate(user.id);
     }
   };
 
@@ -463,7 +463,7 @@ const UsersPage = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
+                  <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
@@ -703,7 +703,7 @@ const UsersPage = () => {
                   jobTitle: formData.get('jobTitle'),
                   isActive: formData.get('isActive') === 'on'
                 };
-                updateUserMutation.mutate({ userId: selectedUser._id, userData });
+                updateUserMutation.mutate({ userId: selectedUser.id, userData });
               }}>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -804,7 +804,7 @@ const UsersPage = () => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const newPassword = formData.get('newPassword');
-                changePasswordMutation.mutate({ userId: selectedUser._id, newPassword });
+                changePasswordMutation.mutate({ userId: selectedUser.id, newPassword });
               }}>
                 <div>
                   <label className="form-label">New Password *</label>
