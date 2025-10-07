@@ -135,7 +135,7 @@ const CreateIncident = () => {
           formData.append('evidenceFiles', file.file);
         });
 
-        response = await axios.post('/api/incidents', formData, {
+        response = await api.post('/api/incidents', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
