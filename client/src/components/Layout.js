@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import SearchSuggestions from './SearchSuggestions';
 import {
   Menu,
   X,
@@ -22,6 +23,7 @@ const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -40,6 +42,21 @@ const Layout = ({ children }) => {
 
   const isActive = (href) => {
     return location.pathname === href || location.pathname.startsWith(href + '/');
+  };
+
+  const handleGlobalSearch = (searchTerm) => {
+    // Navigate to cases page with search term
+    navigate(`/cases?search=${encodeURIComponent(searchTerm)}`);
+  };
+
+  const handleGlobalSuggestionSelect = (suggestion) => {
+    if (suggestion.type === 'case') {
+      navigate(`/cases/${suggestion.id}`);
+    } else if (suggestion.type === 'user') {
+      navigate(`/cases?assignedTo=${suggestion.id}`);
+    } else if (suggestion.type === 'term') {
+      navigate(`/cases?search=${encodeURIComponent(suggestion.value)}`);
+    }
   };
 
   return (
@@ -170,16 +187,12 @@ const Layout = ({ children }) => {
           <div className="flex-1 px-4 flex justify-between">
             <div className="flex-1 flex">
               <div className="w-full flex md:ml-0">
-                <div className="relative w-full text-gray-400 focus-within:text-gray-600">
-                  <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5" />
-                  </div>
-                  <input
-                    className="block w-full h-full pl-8 pr-3 py-2 border-transparent text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-0 focus:border-transparent sm:text-sm"
-                    placeholder="Search cases, incidents, or content..."
-                    type="search"
-                  />
-                </div>
+                <SearchSuggestions
+                  placeholder="Search cases, incidents, or content..."
+                  onSearch={handleGlobalSearch}
+                  onSuggestionSelect={handleGlobalSuggestionSelect}
+                  className="w-full"
+                />
               </div>
             </div>
             <div className="ml-4 flex items-center md:ml-6">

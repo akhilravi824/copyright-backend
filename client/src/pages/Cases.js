@@ -1,7 +1,8 @@
 import React from 'react';
 import { useQuery } from 'react-query';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import SearchSuggestions from '../components/SearchSuggestions';
 import {
   FileText,
   Clock,
@@ -18,15 +19,19 @@ import {
 } from 'lucide-react';
 
 const Cases = () => {
+  const location = useLocation();
+  
+  // Initialize filters from URL parameters
+  const urlParams = new URLSearchParams(location.search);
   const [filters, setFilters] = React.useState({
-    status: '',
-    incidentType: '',
-    severity: '',
-    priority: '',
-    assignedTo: '',
-    search: '',
-    view: 'all',
-    page: 1
+    status: urlParams.get('status') || '',
+    incidentType: urlParams.get('incidentType') || '',
+    severity: urlParams.get('severity') || '',
+    priority: urlParams.get('priority') || '',
+    assignedTo: urlParams.get('assignedTo') || '',
+    search: urlParams.get('search') || '',
+    view: urlParams.get('view') || 'all',
+    page: parseInt(urlParams.get('page')) || 1
   });
 
   const { data, isLoading, error } = useQuery(
@@ -41,6 +46,43 @@ const Cases = () => {
     setFilters(prev => ({
       ...prev,
       [key]: value,
+      page: 1
+    }));
+  };
+
+  const handleSearch = (searchTerm) => {
+    setFilters(prev => ({
+      ...prev,
+      search: searchTerm,
+      page: 1
+    }));
+  };
+
+  const handleSuggestionSelect = (suggestion) => {
+    if (suggestion.type === 'case') {
+      // Navigate to case detail
+      window.location.href = `/cases/${suggestion.id}`;
+    } else if (suggestion.type === 'user') {
+      // Filter by assigned user
+      setFilters(prev => ({
+        ...prev,
+        assignedTo: suggestion.id,
+        page: 1
+      }));
+    } else if (suggestion.type === 'term') {
+      // Apply search term
+      setFilters(prev => ({
+        ...prev,
+        search: suggestion.value,
+        page: 1
+      }));
+    }
+  };
+
+  const handleQuickFilter = (filterUpdate) => {
+    setFilters(prev => ({
+      ...prev,
+      ...filterUpdate,
       page: 1
     }));
   };
@@ -243,16 +285,15 @@ const Cases = () => {
 
             <div>
               <label className="form-label">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  className="form-input pl-10"
-                  placeholder="Search cases..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                />
-              </div>
+              <SearchSuggestions
+                placeholder="Search cases..."
+                onSearch={handleSearch}
+                onSuggestionSelect={handleSuggestionSelect}
+                showFilters={true}
+                onFilterChange={handleQuickFilter}
+                currentFilters={filters}
+                className="w-full"
+              />
             </div>
 
             <div>

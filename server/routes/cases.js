@@ -121,6 +121,111 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// @route   GET /api/cases/search-suggestions
+// @desc    Get search suggestions for cases
+// @access  Private
+router.get('/search-suggestions', auth, async (req, res) => {
+  try {
+    const { q: query, limit = 10 } = req.query;
+    
+    if (!query || query.length < 2) {
+      return res.json({ suggestions: [] });
+    }
+    
+    const searchRegex = new RegExp(query, 'i');
+    
+    // Search in cases (incidents)
+    const cases = await Incident.find({
+      $or: [
+        { caseNumber: searchRegex },
+        { title: searchRegex },
+        { description: searchRegex },
+        { infringerInfo: { $regex: searchRegex } },
+        { tags: { $in: [searchRegex] } }
+      ]
+    })
+    .select('caseNumber title status incidentType severity priority')
+    .limit(parseInt(limit))
+    .sort({ reportedAt: -1 });
+    
+    // Search in users (for assigned to suggestions)
+    const users = await User.find({
+      $or: [
+        { firstName: searchRegex },
+        { lastName: searchRegex },
+        { email: searchRegex },
+        { jobTitle: searchRegex }
+      ],
+      isActive: true
+    })
+    .select('firstName lastName email jobTitle department')
+    .limit(5);
+    
+    // Format suggestions
+    const suggestions = [
+      // Case suggestions
+      ...cases.map(caseItem => ({
+        type: 'case',
+        id: caseItem._id,
+        title: caseItem.title,
+        subtitle: `${caseItem.caseNumber} • ${caseItem.status}`,
+        value: caseItem.title,
+        icon: 'file-text',
+        category: 'Cases'
+      })),
+      
+      // User suggestions
+      ...users.map(user => ({
+        type: 'user',
+        id: user._id,
+        title: `${user.firstName} ${user.lastName}`,
+        subtitle: `${user.jobTitle || 'User'} • ${user.department}`,
+        value: `${user.firstName} ${user.lastName}`,
+        icon: 'user',
+        category: 'Users'
+      })),
+      
+      // Common search terms
+      ...getCommonSearchTerms(query)
+    ];
+    
+    res.json({ suggestions: suggestions.slice(0, parseInt(limit)) });
+  } catch (error) {
+    console.error('Error fetching search suggestions:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// Helper function to get common search terms
+function getCommonSearchTerms(query) {
+  const commonTerms = [
+    { value: 'copyright infringement', label: 'Copyright Infringement' },
+    { value: 'trademark violation', label: 'Trademark Violation' },
+    { value: 'impersonation', label: 'Impersonation' },
+    { value: 'open cases', label: 'Open Cases' },
+    { value: 'resolved cases', label: 'Resolved Cases' },
+    { value: 'critical cases', label: 'Critical Cases' },
+    { value: 'high priority', label: 'High Priority' },
+    { value: 'medium priority', label: 'Medium Priority' },
+    { value: 'low priority', label: 'Low Priority' }
+  ];
+  
+  return commonTerms
+    .filter(term => 
+      term.value.toLowerCase().includes(query.toLowerCase()) ||
+      term.label.toLowerCase().includes(query.toLowerCase())
+    )
+    .map(term => ({
+      type: 'term',
+      id: term.value,
+      title: term.label,
+      subtitle: 'Common search term',
+      value: term.value,
+      icon: 'search',
+      category: 'Suggestions'
+    }));
+}
+
 // @route   GET /api/cases/:id
 // @desc    Get case by ID with full details
 // @access  Private
@@ -458,5 +563,6 @@ router.get('/search/suggestions', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
 
 module.exports = router;
