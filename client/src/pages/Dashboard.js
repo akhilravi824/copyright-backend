@@ -67,10 +67,28 @@ const Dashboard = () => {
   };
 
   const formatMonthlyData = (data) => {
-    return data.map(item => ({
-      month: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}`,
-      count: item.count
-    })).reverse();
+    // Handle both MongoDB aggregation format and Supabase format
+    return data.map(item => {
+      if (item._id && item._id.year && item._id.month) {
+        // MongoDB aggregation format
+        return {
+          month: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}`,
+          count: item.count
+        };
+      } else if (item.month && typeof item.count !== 'undefined') {
+        // Supabase format (already formatted)
+        return {
+          month: item.month,
+          count: item.count
+        };
+      } else {
+        // Fallback for unexpected format
+        return {
+          month: 'Unknown',
+          count: 0
+        };
+      }
+    }).reverse();
   };
 
   const StatCard = ({ title, value, icon: Icon, color, change }) => (
@@ -180,13 +198,13 @@ const Dashboard = () => {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ _id, count }) => `${_id}: ${count}`}
+                    label={({ status, _id, count }) => `${status || _id}: ${count}`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="count"
                   >
                     {statusBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={statusColors[entry._id] || '#6B7280'} />
+                      <Cell key={`cell-${index}`} fill={statusColors[entry.status || entry._id] || '#6B7280'} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -210,7 +228,7 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={typeBreakdown}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="_id" />
+                  <XAxis dataKey="type" />
                   <YAxis />
                   <Tooltip />
                   <Bar dataKey="count" fill="#3B82F6" />

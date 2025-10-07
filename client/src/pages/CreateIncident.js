@@ -50,6 +50,14 @@ const CreateIncident = () => {
     }
   };
 
+  // Normalize website field to avoid native URL validation blocking submit
+  const normalizeWebsite = (value) => {
+    if (!value) return '';
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  };
+
   const removeUrl = (id) => {
     setInfringedUrls(infringedUrls.filter(url => url.id !== id));
   };
@@ -79,47 +87,141 @@ const CreateIncident = () => {
 
     setLoading(true);
     
+    // Show loading message
+    toast.loading('🔄 Creating incident...', {
+      id: 'creating-incident',
+      duration: 0, // Don't auto-dismiss
+      style: {
+        background: '#3B82F6',
+        color: 'white',
+        fontSize: '14px',
+        padding: '16px',
+        borderRadius: '8px'
+      }
+    });
+    
     try {
+      // If user typed a URL but didn't click +, include it automatically
+      if (newUrl.url && infringedUrls.length === 0) {
+        let url = newUrl.url.trim();
+        if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
+        if (url) setInfringedUrls([{ ...newUrl, url, id: Date.now() }]);
+      }
+      let response;
       
-      const formData = new FormData();
-      
-      // Add form fields
-      formData.append('title', data.title);
-      formData.append('description', data.description);
-      formData.append('incidentType', data.incidentType);
-      formData.append('severity', data.severity);
-      formData.append('priority', data.priority);
-      formData.append('infringedContent', data.infringedContent);
-      formData.append('infringedUrls', JSON.stringify(infringedUrls));
-      formData.append('infringerInfo', JSON.stringify({
-        name: data.infringerName,
-        email: data.infringerEmail,
-        website: data.infringerWebsite,
-        organization: data.infringerOrganization,
-        contactInfo: data.infringerContact
-      }));
-      formData.append('tags', JSON.stringify(data.tags?.split(',').map(tag => tag.trim()).filter(tag => tag) || []));
+      if (uploadedFiles.length > 0) {
+        // Use FormData for file uploads
+        const formData = new FormData();
+        
+        // Add form fields
+        formData.append('title', data.title);
+        formData.append('description', data.description);
+        formData.append('incidentType', data.incidentType);
+        formData.append('severity', data.severity);
+        formData.append('priority', data.priority);
+        formData.append('infringedContent', data.infringedContent);
+        formData.append('infringedUrls', JSON.stringify(infringedUrls));
+        formData.append('infringerInfo', JSON.stringify({
+          name: data.infringerName,
+          email: data.infringerEmail,
+          website: normalizeWebsite(data.infringerWebsite),
+          organization: data.infringerOrganization,
+          contactInfo: data.infringerContact
+        }));
+        formData.append('tags', JSON.stringify(data.tags?.split(',').map(tag => tag.trim()).filter(tag => tag) || []));
 
-      // Add uploaded files
-      uploadedFiles.forEach(file => {
-        formData.append('evidence', file.file);
+        // Add uploaded files
+        uploadedFiles.forEach(file => {
+          formData.append('evidenceFiles', file.file);
+        });
+
+        response = await axios.post('/api/incidents', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        // Use JSON for no file uploads
+        const incidentData = {
+          title: data.title,
+          description: data.description,
+          incidentType: data.incidentType,
+          severity: data.severity,
+          priority: data.priority,
+          infringedContent: data.infringedContent,
+          infringedUrls: infringedUrls,
+          infringerInfo: {
+            name: data.infringerName,
+            email: data.infringerEmail,
+            website: normalizeWebsite(data.infringerWebsite),
+            organization: data.infringerOrganization,
+            contactInfo: data.infringerContact
+          },
+          tags: data.tags?.split(',').map(tag => tag.trim()).filter(tag => tag) || []
+        };
+
+        response = await axios.post('/api/incidents', incidentData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+
+      // Dismiss loading toast
+      toast.dismiss('creating-incident');
+      
+      // Get incident details for success message
+      const incident = response.data.incident;
+      const caseNumber = incident.case_number || `DSP-${(incident._id || incident.id).slice(-8).toUpperCase()}`;
+      
+      // Show success message with case number
+      toast.success(`✅ Incident created successfully!\nCase Number: ${caseNumber}\nRedirecting to incident details...`, {
+        duration: 4000,
+        style: {
+          background: '#10B981',
+          color: 'white',
+          fontSize: '14px',
+          padding: '16px',
+          borderRadius: '8px',
+          whiteSpace: 'pre-line'
+        }
       });
-
-      const response = await axios.post('/api/incidents', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      toast.success('Incident reported successfully');
       
-      // Navigate to the incident detail page
-      const incidentId = response.data.incident._id;
-      navigate(`/incidents/${incidentId}`);
+      // Navigate to the incident detail page after a short delay
+      setTimeout(() => {
+        const incidentId = incident._id || incident.id;
+        navigate(`/incidents/${incidentId}`);
+      }, 1500);
       
     } catch (error) {
       console.error('Error creating incident:', error);
-      toast.error(error.response?.data?.message || 'Failed to create incident');
+      
+      // Dismiss loading toast
+      toast.dismiss('creating-incident');
+      
+      // Enhanced error message
+      let errorMessage = 'Failed to create incident';
+      
+      if (error.response?.data?.errors) {
+        // Handle validation errors
+        const validationErrors = error.response.data.errors.map(err => err.msg).join(', ');
+        errorMessage = `Validation Error: ${validationErrors}`;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(`❌ ${errorMessage}`, {
+        duration: 5000,
+        style: {
+          background: '#EF4444',
+          color: 'white',
+          fontSize: '14px',
+          padding: '16px',
+          borderRadius: '8px'
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -145,7 +247,7 @@ const CreateIncident = () => {
         </div>
       )}
       
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pb-8">
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6 pb-8">
         {/* Basic Information */}
         <div className="card">
           <div className="card-header">

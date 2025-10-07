@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const supabaseService = require('./supabaseService');
+const supabaseService = require('../services/supabaseService');
 
 class DatabaseService {
   constructor() {

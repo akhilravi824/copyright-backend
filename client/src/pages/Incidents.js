@@ -21,6 +21,7 @@ const Incidents = () => {
     incidentType: '',
     severity: '',
     search: '',
+    sort: 'date_desc',
     page: 1
   });
 
@@ -95,6 +96,25 @@ const Incidents = () => {
   }
 
   const { incidents, pagination } = data || { incidents: [], pagination: {} };
+  const severityRank = { critical: 4, high: 3, medium: 2, low: 1 };
+  const sortedIncidents = [...incidents].sort((a, b) => {
+    const sort = filters.sort;
+    const aDate = new Date(a.reportedAt || a.reported_at || a.createdAt || a.created_at || 0).getTime();
+    const bDate = new Date(b.reportedAt || b.reported_at || b.createdAt || b.created_at || 0).getTime();
+    const aSev = severityRank[a.severity] || 0;
+    const bSev = severityRank[b.severity] || 0;
+    switch (sort) {
+      case 'date_asc':
+        return aDate - bDate;
+      case 'severity_desc':
+        return bSev - aSev || bDate - aDate;
+      case 'severity_asc':
+        return aSev - bSev || aDate - bDate;
+      case 'date_desc':
+      default:
+        return bDate - aDate;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -115,7 +135,7 @@ const Incidents = () => {
       {/* Filters */}
       <div className="card">
         <div className="card-body">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <div>
               <label className="form-label">Search</label>
               <div className="relative">
@@ -178,6 +198,20 @@ const Incidents = () => {
               </select>
             </div>
 
+            <div>
+              <label className="form-label">Sort</label>
+              <select
+                className="form-select"
+                value={filters.sort}
+                onChange={(e) => handleFilterChange('sort', e.target.value)}
+              >
+                <option value="date_desc">Date: Newest → Oldest</option>
+                <option value="date_asc">Date: Oldest → Newest</option>
+                <option value="severity_desc">Severity: High → Low</option>
+                <option value="severity_asc">Severity: Low → High</option>
+              </select>
+            </div>
+
             <div className="flex items-end">
               <button
                 onClick={() => setFilters({
@@ -199,7 +233,7 @@ const Incidents = () => {
 
       {/* Incidents Table */}
       <div className="card">
-        <div className="overflow-hidden">
+        <div className="overflow-x-auto">
           <table className="table">
             <thead className="table-header">
               <tr>
@@ -210,7 +244,7 @@ const Incidents = () => {
                 <th className="table-header-cell">Severity</th>
                 <th className="table-header-cell">Reporter</th>
                 <th className="table-header-cell">Date</th>
-                <th className="table-header-cell">Actions</th>
+                <th className="table-header-cell text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="table-body">
@@ -229,10 +263,15 @@ const Incidents = () => {
                   </td>
                 </tr>
               ) : (
-                incidents.map((incident) => (
-                  <tr key={incident._id} className="table-row">
+                sortedIncidents.map((incident) => {
+                  // Handle both MongoDB (_id) and Supabase (id) formats
+                  const incidentId = incident._id || incident.id;
+                  const caseNumber = incident.caseNumber || `DSP-${incidentId.slice(-8).toUpperCase()}`;
+                  
+                  return (
+                  <tr key={incidentId} className="table-row">
                     <td className="table-cell font-mono text-sm">
-                      DSP-{incident._id.slice(-8).toUpperCase()}
+                      {caseNumber}
                     </td>
                     <td className="table-cell">
                       <div>
@@ -240,13 +279,13 @@ const Incidents = () => {
                           {incident.title}
                         </div>
                         <div className="text-sm text-gray-500 truncate max-w-xs">
-                          {incident.infringedContent}
+                          {incident.infringedContent || incident.infringed_content}
                         </div>
                       </div>
                     </td>
                     <td className="table-cell">
                       <span className="text-sm text-gray-900">
-                        {incident.incidentType.replace('_', ' ')}
+                        {(incident.incidentType || incident.incident_type || '').replace('_', ' ')}
                       </span>
                     </td>
                     <td className="table-cell">
@@ -272,21 +311,22 @@ const Incidents = () => {
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                         <span className="text-sm text-gray-900">
-                          {new Date(incident.reportedAt).toLocaleDateString()}
+                          {new Date(incident.reportedAt || incident.reported_at).toLocaleDateString()}
                         </span>
                       </div>
                     </td>
-                    <td className="table-cell">
+                    <td className="table-cell whitespace-nowrap text-right">
                       <Link
-                        to={`/incidents/${incident._id}`}
-                        className="btn-outline btn-sm"
+                        to={`/incidents/${incidentId}`}
+                        className="btn-outline btn-sm inline-flex"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Link>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

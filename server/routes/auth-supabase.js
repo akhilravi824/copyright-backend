@@ -3,8 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 
-const databaseService = require('../config/databaseService');
-const { auth, requireRole } = require('../middleware/auth');
+const databaseService = require('../config/databaseService'); // Import the database service
+const { auth, requireRole } = require('../middleware/auth-supabase');
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ router.post('/register', auth, requireRole('admin'), [
     const { firstName, lastName, email, password, role, department, phone, jobTitle } = req.body;
 
     const db = databaseService.getService();
-    
+
     if (databaseService.type === 'supabase') {
       // Check if user already exists using Supabase
       const existingUser = await db.getUserByEmail(email);
@@ -36,29 +36,27 @@ router.post('/register', auth, requireRole('admin'), [
         return res.status(400).json({ message: 'User already exists' });
       }
 
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const password_hash = await bcrypt.hash(password, salt);
+
       // Create user using Supabase
-      const userData = {
+      const newUser = await db.createUser({
         first_name: firstName,
         last_name: lastName,
         email,
-        password,
+        password_hash,
         role,
         department,
         phone,
         job_title: jobTitle,
         is_active: true,
-        email_verified: true
-      };
-
-      const user = await db.createUser(userData);
+        email_verified: true,
+      });
 
       // Generate JWT token
       const token = jwt.sign(
-        { 
-          userId: user.id, 
-          email: user.email, 
-          role: user.role 
-        },
+        { userId: newUser.id, email: newUser.email, role: newUser.role },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -67,46 +65,48 @@ router.post('/register', auth, requireRole('admin'), [
         message: 'User registered successfully',
         token,
         user: {
-          id: user.id,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          email: user.email,
-          role: user.role,
-          department: user.department,
-          fullName: `${user.first_name} ${user.last_name}`,
-          preferences: user.preferences
-        }
+          id: newUser.id,
+          firstName: newUser.first_name,
+          lastName: newUser.last_name,
+          email: newUser.email,
+          role: newUser.role,
+          department: newUser.department,
+        },
       });
+
     } else {
-      // Fallback to MongoDB
+      // MongoDB logic (existing code)
       const User = require('../models/User');
       
+      // Check if user already exists
       const existingUser = await User.findOne({ email });
       if (existingUser) {
         return res.status(400).json({ message: 'User already exists' });
       }
 
-      const user = new User({
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Create user
+      const newUser = new User({
         firstName,
         lastName,
         email,
-        password,
+        password: hashedPassword,
         role,
         department,
         phone,
         jobTitle,
         isActive: true,
-        emailVerified: true
+        emailVerified: true,
       });
 
-      await user.save();
+      await newUser.save();
 
+      // Generate JWT token
       const token = jwt.sign(
-        { 
-          userId: user._id, 
-          email: user.email, 
-          role: user.role 
-        },
+        { userId: newUser._id, email: newUser.email, role: newUser.role },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -115,30 +115,28 @@ router.post('/register', auth, requireRole('admin'), [
         message: 'User registered successfully',
         token,
         user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-          department: user.department,
-          fullName: user.fullName,
-          preferences: user.preferences
-        }
+          id: newUser._id,
+          firstName: newUser.firstName,
+          lastName: newUser.lastName,
+          email: newUser.email,
+          role: newUser.role,
+          department: newUser.department,
+        },
       });
     }
 
   } catch (error) {
-    console.error('Registration error:', error);
+    console.error('Error registering user:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
 // @route   POST /api/auth/login
-// @desc    Login user
+// @desc    Authenticate user & get token
 // @access  Public
 router.post('/login', [
-  body('email').isEmail().withMessage('Please provide a valid email'),
-  body('password').exists().withMessage('Password is required')
+  body('email').isEmail().withMessage('Please include a valid email'),
+  body('password').exists().withMessage('Password is required'),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -149,35 +147,29 @@ router.post('/login', [
     const { email, password } = req.body;
 
     const db = databaseService.getService();
-    
+
     if (databaseService.type === 'supabase') {
       // Find user using Supabase
       const user = await db.getUserByEmail(email);
-      
+
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      if (!user.is_active) {
-        return res.status(401).json({ message: 'Account is deactivated' });
-      }
-
-      // Check password
+      // Compare password
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      // Update last login
-      await db.updateUser(user.id, { last_login: new Date() });
+      // Check if user is active
+      if (!user.is_active) {
+        return res.status(401).json({ message: 'Account is inactive. Please contact support.' });
+      }
 
       // Generate JWT token
       const token = jwt.sign(
-        { 
-          userId: user.id, 
-          email: user.email, 
-          role: user.role 
-        },
+        { userId: user.id, email: user.email, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -193,36 +185,38 @@ router.post('/login', [
           role: user.role,
           department: user.department,
           fullName: `${user.first_name} ${user.last_name}`,
-          preferences: user.preferences
-        }
+          preferences: user.preferences,
+        },
       });
+
     } else {
-      // Fallback to MongoDB
+      // MongoDB logic (existing code)
       const User = require('../models/User');
       
+      // Find user
       const user = await User.findOne({ email }).select('+password');
-      
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      if (!user.isActive) {
-        return res.status(401).json({ message: 'Account is deactivated' });
-      }
-
-      const isMatch = await user.matchPassword(password);
+      // Compare password
+      const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      await user.recordLogin();
+      // Check if user is active
+      if (!user.isActive) {
+        return res.status(401).json({ message: 'Account is inactive. Please contact support.' });
+      }
 
+      // Update last login
+      user.lastLogin = new Date();
+      await user.save();
+
+      // Generate JWT token
       const token = jwt.sign(
-        { 
-          userId: user._id, 
-          email: user.email, 
-          role: user.role 
-        },
+        { userId: user._id, email: user.email, role: user.role },
         process.env.JWT_SECRET,
         { expiresIn: '24h' }
       );
@@ -237,9 +231,9 @@ router.post('/login', [
           email: user.email,
           role: user.role,
           department: user.department,
-          fullName: user.fullName,
-          preferences: user.preferences
-        }
+          fullName: `${user.firstName} ${user.lastName}`,
+          preferences: user.preferences,
+        },
       });
     }
 
@@ -250,15 +244,15 @@ router.post('/login', [
 });
 
 // @route   GET /api/auth/me
-// @desc    Get current user
+// @desc    Get current user profile
 // @access  Private
 router.get('/me', auth, async (req, res) => {
   try {
     const db = databaseService.getService();
-    
+
     if (databaseService.type === 'supabase') {
       const user = await db.getUserById(req.user.userId);
-      
+
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -270,15 +264,21 @@ router.get('/me', auth, async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        fullName: `${user.first_name} ${user.last_name}`,
-        preferences: user.preferences
+        phone: user.phone,
+        jobTitle: user.job_title,
+        avatar: user.avatar,
+        isActive: user.is_active,
+        lastLogin: user.last_login,
+        preferences: user.preferences,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
       });
+
     } else {
-      // Fallback to MongoDB
+      // MongoDB logic (existing code)
       const User = require('../models/User');
       
-      const user = await User.findById(req.user.userId);
-      
+      const user = await User.findById(req.user.userId).select('-password');
       if (!user) {
         return res.status(404).json({ message: 'User not found' });
       }
@@ -290,76 +290,21 @@ router.get('/me', auth, async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        fullName: user.fullName,
-        preferences: user.preferences
+        phone: user.phone,
+        jobTitle: user.jobTitle,
+        avatar: user.avatar,
+        isActive: user.isActive,
+        lastLogin: user.lastLogin,
+        preferences: user.preferences,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       });
     }
 
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('Error fetching user profile:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
-// @route   PUT /api/auth/change-password
-// @desc    Change user password
-// @access  Private
-router.put('/change-password', auth, [
-  body('currentPassword').exists().withMessage('Current password is required'),
-  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { currentPassword, newPassword } = req.body;
-
-    const db = databaseService.getService();
-    
-    if (databaseService.type === 'supabase') {
-      const user = await db.getUserById(req.user.userId);
-      
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Current password is incorrect' });
-      }
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      await db.updateUser(user.id, { password_hash: hashedPassword });
-
-      res.json({ message: 'Password changed successfully' });
-    } else {
-      // Fallback to MongoDB
-      const User = require('../models/User');
-      
-      const user = await User.findById(req.user.userId).select('+password');
-      
-      if (!user) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      const isMatch = await user.matchPassword(currentPassword);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Current password is incorrect' });
-      }
-
-      user.password = newPassword;
-      await user.save();
-
-      res.json({ message: 'Password changed successfully' });
-    }
-
-  } catch (error) {
-    console.error('Change password error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// Export middleware for use in other routes
 module.exports = router;

@@ -4,8 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 
-const Incident = require('../models/Incident');
-const User = require('../models/User');
+const databaseService = require('../config/databaseService');
 const { auth, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
@@ -49,40 +48,21 @@ const incidentValidation = [
   body('severity').optional().isIn(['low', 'medium', 'high', 'critical']).withMessage('Invalid severity level'),
   body('infringedContent').trim().isLength({ min: 5 }).withMessage('Infringed content description is required'),
   body('infringedUrls').custom((value) => {
-    try {
-      const urls = typeof value === 'string' ? JSON.parse(value) : value;
-      if (!Array.isArray(urls)) {
-        throw new Error('Infringed URLs must be an array');
-      }
-      for (const url of urls) {
-        if (!url.url || typeof url.url !== 'string') {
-          throw new Error('Each URL must have a valid url field');
-        }
-        // Basic URL validation - try with https:// if no protocol
-        let urlToValidate = url.url;
-        if (!urlToValidate.match(/^https?:\/\//i)) {
-          urlToValidate = `https://${urlToValidate}`;
-        }
-        try {
-          new URL(urlToValidate);
-        } catch {
-          throw new Error(`Invalid URL format: ${url.url}`);
-        }
-      }
-      return true;
-    } catch (error) {
-      throw new Error(error.message);
+    if (!value || !Array.isArray(value)) {
+      throw new Error('Infringed URLs must be an array');
     }
+    if (value.length === 0) {
+      throw new Error('At least one infringed URL is required');
+    }
+    return true;
   }),
-  body('infringerInfo.name').optional().trim().isLength({ min: 2 }).withMessage('Infringer name must be at least 2 characters'),
-  body('infringerInfo.email').optional().isEmail().withMessage('Invalid email format'),
-  body('infringerInfo.website').optional().isURL().withMessage('Invalid website URL')
+  body('infringerInfo').optional().isObject().withMessage('Infringer info must be an object')
 ];
 
 // @route   POST /api/incidents
-// @desc    Create a new incident report
-// @access  Private (staff and above)
-router.post('/', auth, requirePermission('create_incidents'), incidentValidation, upload.array('evidence', 10), async (req, res) => {
+// @desc    Create a new incident
+// @access  Private
+router.post('/', auth, upload.array('evidence', 5), incidentValidation, async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -94,64 +74,142 @@ router.post('/', auth, requirePermission('create_incidents'), incidentValidation
       description,
       incidentType,
       severity = 'medium',
+      priority = 'normal',
       infringedContent,
       infringedUrls,
-      infringerInfo,
+      infringerInfo = {},
       tags = [],
-      priority = 'normal'
+      dueDate
     } = req.body;
 
-    // Process uploaded files
-    const evidence = [];
-    if (req.files) {
-      for (const file of req.files) {
-        evidence.push({
-          type: file.mimetype.startsWith('image/') ? 'screenshot' : 'document',
-          filename: file.filename,
-          url: `/uploads/evidence/${file.filename}`,
-          description: `Uploaded evidence: ${file.originalname}`,
-          uploadedBy: req.user._id
-        });
+    // Process infringed URLs
+    let processedUrls = [];
+    if (typeof infringedUrls === 'string') {
+      try {
+        processedUrls = JSON.parse(infringedUrls);
+      } catch (e) {
+        processedUrls = [{ url: infringedUrls, description: '', verified: false }];
       }
+    } else if (Array.isArray(infringedUrls)) {
+      processedUrls = infringedUrls;
     }
 
-    // Process URLs and infringer info
-    const processedUrls = typeof infringedUrls === 'string' ? JSON.parse(infringedUrls) : infringedUrls || [];
-    const processedInfringerInfo = typeof infringerInfo === 'string' ? JSON.parse(infringerInfo) : infringerInfo || {};
-    const processedTags = typeof tags === 'string' ? JSON.parse(tags) : tags || [];
-    
-    // Auto-add https:// to URLs that don't have a protocol
-    const normalizedUrls = processedUrls.map(urlObj => ({
-      ...urlObj,
-      url: urlObj.url.match(/^https?:\/\//i) ? urlObj.url : `https://${urlObj.url}`
-    }));
-
-    // Create incident
-    const incident = new Incident({
-      title,
-      description,
-      reporter: req.user._id,
-      incidentType,
-      severity,
-      infringedContent,
-      infringedUrls: normalizedUrls,
-      infringerInfo: processedInfringerInfo,
-      evidence,
-      tags: processedTags,
-      priority,
-      status: 'reported'
-    });
-
-    await incident.save();
-    await incident.populate('reporter', 'firstName lastName email department');
-
-    res.status(201).json({
-      message: 'Incident reported successfully',
-      incident: {
-        ...incident.toObject(),
-        caseNumber: incident.caseNumber
+    // Normalize URLs (add https:// if no protocol)
+    processedUrls = processedUrls.map(urlObj => {
+      if (typeof urlObj === 'string') {
+        urlObj = { url: urlObj, description: '', verified: false };
       }
+      if (!urlObj.url.startsWith('http://') && !urlObj.url.startsWith('https://')) {
+        urlObj.url = 'https://' + urlObj.url;
+      }
+      return urlObj;
     });
+
+    // Process infringer info
+    let processedInfringerInfo = {};
+    if (typeof infringerInfo === 'string') {
+      try {
+        processedInfringerInfo = JSON.parse(infringerInfo);
+      } catch (e) {
+        processedInfringerInfo = { name: infringerInfo };
+      }
+    } else if (typeof infringerInfo === 'object') {
+      processedInfringerInfo = infringerInfo;
+    }
+
+    // Process tags
+    let processedTags = [];
+    if (typeof tags === 'string') {
+      try {
+        processedTags = JSON.parse(tags);
+      } catch (e) {
+        processedTags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+      }
+    } else if (Array.isArray(tags)) {
+      processedTags = tags;
+    }
+
+    // Process evidence files
+    const evidenceFiles = req.files ? req.files.map(file => ({
+      fileName: file.originalname,
+      filePath: file.path,
+      fileSize: file.size,
+      fileType: file.mimetype,
+      uploadedAt: new Date()
+    })) : [];
+
+    // Get database service
+    const db = databaseService.getService();
+    
+    if (databaseService.type === 'supabase') {
+      // Create incident using Supabase
+      const { data, error } = await db.createIncident({
+        title,
+        description,
+        reporter_id: req.user.id,
+        incident_type: incidentType,
+        severity,
+        priority,
+        infringed_content: infringedContent,
+        infringed_urls: processedUrls,
+        infringer_info: processedInfringerInfo,
+        tags: processedTags,
+        evidence_files: evidenceFiles,
+        due_date: dueDate ? new Date(dueDate) : null,
+        reported_at: new Date()
+      });
+
+      if (error) {
+        console.error('Error creating incident:', error);
+        return res.status(500).json({ message: 'Server error', error: error.message });
+      }
+
+      // Get the created incident with populated data
+      const incident = await db.getIncidentById(data.id);
+      
+      res.status(201).json({
+        message: 'Incident reported successfully',
+        incident: {
+          ...incident,
+          caseNumber: `DSP-${incident.id.slice(-8).toUpperCase()}`,
+          reporter: {
+            _id: incident.reporter?.id,
+            firstName: incident.reporter?.first_name,
+            lastName: incident.reporter?.last_name,
+            email: incident.reporter?.email,
+            department: incident.reporter?.department
+          }
+        }
+      });
+    } else {
+      // Fallback to MongoDB (for backward compatibility)
+      const Incident = require('../models/Incident');
+      const User = require('../models/User');
+      
+      const incident = new Incident({
+        title,
+        description,
+        reporter: req.user._id,
+        incidentType,
+        severity,
+        priority,
+        infringedContent,
+        infringedUrls: processedUrls,
+        infringerInfo: processedInfringerInfo,
+        tags: processedTags,
+        evidenceFiles,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        reportedAt: new Date()
+      });
+
+      await incident.save();
+      await incident.populate('reporter', 'firstName lastName email department');
+
+      res.status(201).json({
+        message: 'Incident reported successfully',
+        incident
+      });
+    }
 
   } catch (error) {
     console.error('Error creating incident:', error);
@@ -173,62 +231,97 @@ router.get('/', auth, async (req, res) => {
       assignedTo,
       reporter,
       search,
-      sortBy = 'reportedAt',
+      sortBy = 'reported_at',
       sortOrder = 'desc'
     } = req.query;
 
-    // Build filter object
-    const filter = {};
+    const db = databaseService.getService();
     
-    if (status) filter.status = status;
-    if (incidentType) filter.incidentType = incidentType;
-    if (severity) filter.severity = severity;
-    if (assignedTo) filter.assignedTo = assignedTo;
-    if (reporter) filter.reporter = reporter;
-    
-    // Search functionality
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { infringedContent: { $regex: search, $options: 'i' } },
-        { 'infringerInfo.name': { $regex: search, $options: 'i' } }
-      ];
-    }
+    if (databaseService.type === 'supabase') {
+      // Get incidents using Supabase
+      const filters = {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        status,
+        incident_type: incidentType,
+        severity,
+        assigned_to: assignedTo,
+        reporter_id: reporter,
+        search,
+        sortBy,
+        sortOrder
+      };
 
-    // Role-based filtering
-    if (req.user.role === 'staff') {
-      filter.$or = [
-        { reporter: req.user._id },
-        { assignedTo: req.user._id }
-      ];
-    }
+      const { incidents, total } = await db.listIncidents(filters);
 
-    // Pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    // Sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
-
-    const incidents = await Incident.find(filter)
-      .populate('reporter', 'firstName lastName email department')
-      .populate('assignedTo', 'firstName lastName email')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await Incident.countDocuments(filter);
-
-    res.json({
-      incidents,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit)),
-        total,
-        limit: parseInt(limit)
+      res.json({
+        incidents: incidents.map(incident => ({
+          ...incident,
+          caseNumber: `DSP-${incident.id.slice(-8).toUpperCase()}`,
+          reporter: {
+            _id: incident.reporter?.id,
+            firstName: incident.reporter?.first_name,
+            lastName: incident.reporter?.last_name,
+            email: incident.reporter?.email,
+            department: incident.reporter?.department
+          },
+          assignedTo: incident.assigned_to ? {
+            _id: incident.assigned_to.id,
+            firstName: incident.assigned_to.first_name,
+            lastName: incident.assigned_to.last_name,
+            email: incident.assigned_to.email
+          } : null
+        })),
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / parseInt(limit)),
+          total,
+          limit: parseInt(limit)
+        }
+      });
+    } else {
+      // Fallback to MongoDB
+      const Incident = require('../models/Incident');
+      
+      const filter = {};
+      if (status) filter.status = status;
+      if (incidentType) filter.incidentType = incidentType;
+      if (severity) filter.severity = severity;
+      if (assignedTo) filter.assignedTo = assignedTo;
+      if (reporter) filter.reporter = reporter;
+      
+      if (search) {
+        filter.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { infringedContent: { $regex: search, $options: 'i' } },
+          { 'infringerInfo.name': { $regex: search, $options: 'i' } }
+        ];
       }
-    });
+
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      const sort = {};
+      sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+      const incidents = await Incident.find(filter)
+        .populate('reporter', 'firstName lastName email department')
+        .populate('assignedTo', 'firstName lastName email')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit));
+
+      const total = await Incident.countDocuments(filter);
+
+      res.json({
+        incidents,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / parseInt(limit)),
+          total,
+          limit: parseInt(limit)
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching incidents:', error);
@@ -241,26 +334,49 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.get('/:id', auth, async (req, res) => {
   try {
-    const incident = await Incident.findById(req.params.id)
-      .populate('reporter', 'firstName lastName email department')
-      .populate('assignedTo', 'firstName lastName email')
-      .populate('notes.author', 'firstName lastName');
+    const db = databaseService.getService();
+    
+    if (databaseService.type === 'supabase') {
+      const incident = await db.getIncidentById(req.params.id);
+      
+      if (!incident) {
+        return res.status(404).json({ message: 'Incident not found' });
+      }
 
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
+      res.json({
+        ...incident,
+        caseNumber: `DSP-${incident.id.slice(-8).toUpperCase()}`,
+        reporter: {
+          _id: incident.reporter?.id,
+          firstName: incident.reporter?.first_name,
+          lastName: incident.reporter?.last_name,
+          email: incident.reporter?.email,
+          department: incident.reporter?.department
+        },
+        assignedTo: incident.assigned_to ? {
+          _id: incident.assigned_to.id,
+          firstName: incident.assigned_to.first_name,
+          lastName: incident.assigned_to.last_name,
+          email: incident.assigned_to.email
+        } : null
+      });
+    } else {
+      // Fallback to MongoDB
+      const Incident = require('../models/Incident');
+      
+      const incident = await Incident.findById(req.params.id)
+        .populate('reporter', 'firstName lastName email department phone')
+        .populate('assignedTo', 'firstName lastName email phone')
+        .populate('notes.author', 'firstName lastName email')
+        .populate('documents', 'title fileName fileType uploadedBy createdAt')
+        .populate('monitoringAlerts', 'title alertType status createdAt');
+
+      if (!incident) {
+        return res.status(404).json({ message: 'Incident not found' });
+      }
+
+      res.json(incident);
     }
-
-    // Check permissions
-    if (req.user.role === 'staff' && 
-        incident.reporter._id.toString() !== req.user._id.toString() && 
-        incident.assignedTo?._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    res.json({
-      ...incident.toObject(),
-      caseNumber: incident.caseNumber
-    });
 
   } catch (error) {
     console.error('Error fetching incident:', error);
@@ -273,158 +389,41 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private
 router.put('/:id', auth, requirePermission('edit_incidents'), async (req, res) => {
   try {
-    const incident = await Incident.findById(req.params.id);
+    const db = databaseService.getService();
     
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
-    }
-
-    // Check permissions
-    if (req.user.role === 'staff' && 
-        incident.reporter.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Can only edit your own incidents' });
-    }
-
-    const updates = req.body;
-    delete updates._id;
-    delete updates.reporter;
-    delete updates.reportedAt;
-
-    Object.assign(incident, updates);
-    await incident.save();
-
-    await incident.populate('reporter', 'firstName lastName email department');
-    await incident.populate('assignedTo', 'firstName lastName email');
-
-    res.json({
-      message: 'Incident updated successfully',
-      incident: {
-        ...incident.toObject(),
-        caseNumber: incident.caseNumber
+    if (databaseService.type === 'supabase') {
+      const { data, error } = await db.updateIncident(req.params.id, req.body);
+      
+      if (error) {
+        return res.status(500).json({ message: 'Server error', error: error.message });
       }
-    });
+
+      res.json({
+        message: 'Incident updated successfully',
+        incident: data
+      });
+    } else {
+      // Fallback to MongoDB
+      const Incident = require('../models/Incident');
+      
+      const incident = await Incident.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true }
+      ).populate('reporter', 'firstName lastName email department');
+
+      if (!incident) {
+        return res.status(404).json({ message: 'Incident not found' });
+      }
+
+      res.json({
+        message: 'Incident updated successfully',
+        incident
+      });
+    }
 
   } catch (error) {
     console.error('Error updating incident:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// @route   POST /api/incidents/:id/notes
-// @desc    Add note to incident
-// @access  Private
-router.post('/:id/notes', auth, [
-  body('content').trim().isLength({ min: 1 }).withMessage('Note content is required')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const incident = await Incident.findById(req.params.id);
-    
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
-    }
-
-    await incident.addNote(req.body.content, req.user._id);
-    await incident.populate('notes.author', 'firstName lastName');
-
-    res.json({
-      message: 'Note added successfully',
-      incident: incident.toObject()
-    });
-
-  } catch (error) {
-    console.error('Error adding note:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// @route   PUT /api/incidents/:id/status
-// @desc    Update incident status
-// @access  Private
-router.put('/:id/status', auth, requirePermission('edit_incidents'), [
-  body('status').isIn(['reported', 'under_review', 'in_progress', 'resolved', 'closed', 'escalated']).withMessage('Invalid status')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const incident = await Incident.findById(req.params.id);
-    
-    if (!incident) {
-      return res.status(404).json({ message: 'Incident not found' });
-    }
-
-    await incident.updateStatus(req.body.status, req.user._id);
-
-    res.json({
-      message: 'Status updated successfully',
-      incident: {
-        ...incident.toObject(),
-        caseNumber: incident.caseNumber
-      }
-    });
-
-  } catch (error) {
-    console.error('Error updating status:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// @route   GET /api/incidents/stats/overview
-// @desc    Get incident statistics
-// @access  Private
-router.get('/stats/overview', auth, async (req, res) => {
-  try {
-    const stats = await Incident.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          open: { $sum: { $cond: [{ $in: ['$status', ['reported', 'under_review', 'in_progress']] }, 1, 0] } },
-          resolved: { $sum: { $cond: [{ $in: ['$status', ['resolved', 'closed']] }, 1, 0] } },
-          critical: { $sum: { $cond: [{ $eq: ['$severity', 'critical'] }, 1, 0] } },
-          high: { $sum: { $cond: [{ $eq: ['$severity', 'high'] }, 1, 0] } }
-        }
-      }
-    ]);
-
-    const typeStats = await Incident.aggregate([
-      {
-        $group: {
-          _id: '$incidentType',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    const monthlyStats = await Incident.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: '$reportedAt' },
-            month: { $month: '$reportedAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': -1, '_id.month': -1 } },
-      { $limit: 12 }
-    ]);
-
-    res.json({
-      overview: stats[0] || { total: 0, open: 0, resolved: 0, critical: 0, high: 0 },
-      byType: typeStats,
-      monthly: monthlyStats
-    });
-
-  } catch (error) {
-    console.error('Error fetching stats:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

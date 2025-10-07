@@ -1,56 +1,31 @@
-const fs = require('fs');
-const path = require('path');
-const supabase = require('./config/supabase');
+const supabase = require('../config/supabase');
 
 async function setupSupabaseDatabase() {
   try {
     console.log('🚀 Setting up Supabase database...');
     
     // Read the SQL schema file
+    const fs = require('fs');
+    const path = require('path');
     const schemaPath = path.join(__dirname, '../database/supabase-schema.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8');
     
-    // Split the schema into individual statements
-    const statements = schema
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-    
-    console.log(`📝 Executing ${statements.length} SQL statements...`);
-    
-    // Execute each statement
-    for (let i = 0; i < statements.length; i++) {
-      const statement = statements[i];
-      if (statement.trim()) {
-        try {
-          const { error } = await supabase.rpc('exec_sql', { sql: statement });
-          if (error) {
-            console.warn(`⚠️  Statement ${i + 1} warning:`, error.message);
-          } else {
-            console.log(`✅ Statement ${i + 1} executed successfully`);
-          }
-        } catch (err) {
-          console.warn(`⚠️  Statement ${i + 1} error:`, err.message);
-        }
-      }
-    }
-    
-    console.log('✅ Supabase database setup completed!');
-    
-    // Test the connection
-    const { data, error } = await supabase
-      .from('users')
-      .select('count')
-      .limit(1);
-    
-    if (error) {
-      console.error('❌ Database test failed:', error);
-    } else {
-      console.log('✅ Database connection test successful');
-    }
+    console.log('📝 Schema file loaded successfully');
+    console.log('⚠️  Please run the following SQL in your Supabase SQL Editor:');
+    console.log('=' .repeat(80));
+    console.log(schema);
+    console.log('=' .repeat(80));
+    console.log('');
+    console.log('📋 Instructions:');
+    console.log('1. Go to your Supabase dashboard: https://supabase.com/dashboard');
+    console.log('2. Select your project: slccdyjixpmstlhveagk');
+    console.log('3. Go to SQL Editor');
+    console.log('4. Copy and paste the SQL above');
+    console.log('5. Click "Run" to execute');
+    console.log('6. Then run: node scripts/migrate-to-supabase.js');
     
   } catch (error) {
-    console.error('❌ Database setup failed:', error);
+    console.error('❌ Setup failed:', error);
     throw error;
   }
 }
@@ -59,7 +34,7 @@ async function setupSupabaseDatabase() {
 if (require.main === module) {
   setupSupabaseDatabase()
     .then(() => {
-      console.log('🎉 Setup completed successfully!');
+      console.log('🎉 Setup instructions provided!');
       process.exit(0);
     })
     .catch((error) => {

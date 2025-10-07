@@ -1,10 +1,8 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 
-const Incident = require('../models/Incident');
-const User = require('../models/User');
-const Document = require('../models/Document');
-const { auth, requirePermission } = require('../middleware/auth');
+const databaseService = require('../config/databaseService');
+const { auth, requirePermission } = require('../middleware/auth-supabase');
 
 const router = express.Router();
 
@@ -13,6 +11,61 @@ const router = express.Router();
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
+    const db = databaseService.getService();
+
+    if (databaseService.type === 'supabase') {
+      // Simple Supabase implementation - just return incidents as cases
+      const { data: incidents, error } = await db.client.from('incidents').select(`
+        *,
+        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email, department, phone),
+        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email, phone)
+      `).order('reported_at', { ascending: false });
+
+      if (error) throw error;
+
+      const cases = incidents.map(incident => ({
+        _id: incident.id,
+        title: incident.title,
+        description: incident.description,
+        reporter: {
+          _id: incident.reporter?.id,
+          firstName: incident.reporter?.first_name,
+          lastName: incident.reporter?.last_name,
+          email: incident.reporter?.email,
+          department: incident.reporter?.department,
+          phone: incident.reporter?.phone,
+        },
+        incidentType: incident.incident_type,
+        severity: incident.severity,
+        status: incident.status,
+        priority: incident.priority,
+        infringedContent: incident.infringed_content,
+        infringedUrls: incident.infringed_urls,
+        infringerInfo: incident.infringer_info,
+        assignedTo: incident.assigned_user ? {
+          _id: incident.assigned_user.id,
+          firstName: incident.assigned_user.first_name,
+          lastName: incident.assigned_user.last_name,
+          email: incident.assigned_user.email,
+          phone: incident.assigned_user.phone,
+        } : null,
+        assignedAt: incident.assigned_at,
+        dueDate: incident.due_date,
+        caseNumber: incident.case_number,
+        tags: incident.tags,
+        evidenceFiles: incident.evidence_files,
+        notes: incident.notes,
+        reportedAt: incident.reported_at,
+        resolvedAt: incident.resolved_at,
+        createdAt: incident.created_at,
+        updatedAt: incident.updated_at,
+      }));
+
+      res.json({ cases, pagination: { current: 1, pages: 1, total: cases.length, limit: 20 } });
+      return;
+    }
+
+    // MongoDB implementation (existing code)
     const {
       page = 1,
       limit = 20,
@@ -436,8 +489,81 @@ router.put('/:id/status', auth, requirePermission('edit_incidents'), [
 // @access  Private
 router.get('/stats/dashboard', auth, async (req, res) => {
   try {
-    const userId = req.user._id;
-    const userRole = req.user.role;
+    const databaseService = require('../config/databaseService');
+    const db = databaseService.getService();
+
+    if (databaseService.type === 'supabase') {
+      // Supabase implementation
+      const userId = req.user.id;
+      const userRole = req.user.role;
+
+      // Get all incidents for the user (role-based filtering)
+      let incidentsQuery = db.client.from('incidents').select('*');
+      
+      if (userRole === 'staff') {
+        incidentsQuery = incidentsQuery.or(`reporter_id.eq.${userId},assigned_to.eq.${userId}`);
+      }
+
+      const { data: incidents, error } = await incidentsQuery;
+      
+      if (error) throw error;
+
+      // Calculate statistics
+      const total = incidents.length;
+      const open = incidents.filter(i => ['reported', 'under_review', 'in_progress'].includes(i.status)).length;
+      const resolved = incidents.filter(i => ['resolved', 'closed'].includes(i.status)).length;
+      const critical = incidents.filter(i => i.severity === 'critical').length;
+      const high = incidents.filter(i => i.severity === 'high').length;
+      const urgent = incidents.filter(i => i.priority === 'urgent').length;
+
+      // Status breakdown
+      const statusBreakdown = incidents.reduce((acc, incident) => {
+        const status = incident.status;
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Type breakdown
+      const typeBreakdown = incidents.reduce((acc, incident) => {
+        const type = incident.incident_type;
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Monthly trends (last 6 months)
+      const monthlyTrends = [];
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(date.getMonth() - i);
+        const month = date.toISOString().substring(0, 7);
+        
+        const monthIncidents = incidents.filter(incident => 
+          incident.reported_at && incident.reported_at.startsWith(month)
+        );
+        
+        monthlyTrends.push({
+          month: month,
+          count: monthIncidents.length
+        });
+      }
+
+      res.json({
+        overview: { total, open, resolved, critical, high, urgent },
+        statusBreakdown: Object.entries(statusBreakdown).map(([status, count]) => ({
+          status,
+          count
+        })),
+        typeBreakdown: Object.entries(typeBreakdown).map(([type, count]) => ({
+          type,
+          count
+        })),
+        monthlyTrends
+      });
+
+    } else {
+      // MongoDB implementation (existing code)
+      const userId = req.user._id;
+      const userRole = req.user.role;
 
     // Base aggregation pipeline
     let matchStage = {};
@@ -575,6 +701,8 @@ router.get('/stats/dashboard', auth, async (req, res) => {
       responseTime: responseTimeStats[0] || { avgResponseTime: 0, minResponseTime: 0, maxResponseTime: 0 },
       userStats
     });
+
+    } // End of MongoDB else block
 
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);

@@ -11,6 +11,9 @@ const databaseService = require('./config/databaseService');
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Trust proxy for rate limiting
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(compression());
@@ -37,9 +40,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan('combined'));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/incidents', require('./routes/incidents'));
+if (process.env.DATABASE_TYPE === 'supabase') {
+  app.use('/api/auth', require('./routes/auth-supabase')); // Use Supabase auth routes
+  app.use('/api/incidents', require('./routes/incidents-supabase')); // Use Supabase incident routes
+  // Add other Supabase routes as they are converted
+  app.use('/api/users', require('./routes/users-supabase'));
+} else {
+  app.use('/api/auth', require('./routes/auth')); // Original MongoDB auth routes
+  app.use('/api/incidents', require('./routes/incidents')); // Original MongoDB incident routes
+  app.use('/api/users', require('./routes/users'));
+}
 app.use('/api/cases', require('./routes/cases'));
 app.use('/api/documents', require('./routes/documents'));
 app.use('/api/monitoring', require('./routes/monitoring'));

@@ -31,7 +31,8 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const response = await axios.get('/api/auth/me');
-          setUser(response.data.user);
+          // Support both shapes: { user: {...} } and direct user fields
+          setUser(response.data.user || response.data);
         } catch (error) {
           console.error('Auth check failed:', error);
           localStorage.removeItem('token');

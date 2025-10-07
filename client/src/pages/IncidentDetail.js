@@ -178,7 +178,7 @@ const IncidentDetail = () => {
 
               <div>
                 <h4 className="font-medium text-gray-900 mb-2">Infringed Content</h4>
-                <p className="text-gray-700">{incident.infringedContent}</p>
+                <p className="text-gray-700">{incident.infringedContent || incident.infringed_content}</p>
               </div>
 
               {incident.infringedUrls && incident.infringedUrls.length > 0 && (
@@ -342,7 +342,7 @@ const IncidentDetail = () => {
               <div>
                 <label className="form-label">Type</label>
                 <p className="text-sm text-gray-900">
-                  {incident.incidentType.replace('_', ' ')}
+                  {(incident.incidentType || incident.incident_type || '').replace('_', ' ')}
                 </p>
               </div>
 
@@ -362,7 +362,7 @@ const IncidentDetail = () => {
                 <label className="form-label">Reported Date</label>
                 <div className="flex items-center text-sm text-gray-900">
                   <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                  {new Date(incident.reportedAt).toLocaleDateString()}
+                  {new Date(incident.reportedAt || incident.reported_at).toLocaleDateString()}
                 </div>
               </div>
 

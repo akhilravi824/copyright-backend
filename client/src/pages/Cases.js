@@ -31,6 +31,7 @@ const Cases = () => {
     assignedTo: urlParams.get('assignedTo') || '',
     search: urlParams.get('search') || '',
     view: urlParams.get('view') || 'all',
+    sort: urlParams.get('sort') || 'date_desc',
     page: parseInt(urlParams.get('page')) || 1
   });
 
@@ -157,6 +158,25 @@ const Cases = () => {
   }
 
   const { cases, pagination } = data || { cases: [], pagination: {} };
+  const severityRank = { critical: 4, high: 3, medium: 2, low: 1 };
+  const sortedCases = [...cases].sort((a, b) => {
+    const sort = filters.sort;
+    const aDate = new Date(a.reportedAt || a.reported_at || a.createdAt || a.created_at || 0).getTime();
+    const bDate = new Date(b.reportedAt || b.reported_at || b.createdAt || b.created_at || 0).getTime();
+    const aSev = severityRank[a.severity] || 0;
+    const bSev = severityRank[b.severity] || 0;
+    switch (sort) {
+      case 'date_asc':
+        return aDate - bDate;
+      case 'severity_desc':
+        return bSev - aSev || bDate - aDate;
+      case 'severity_asc':
+        return aSev - bSev || aDate - bDate;
+      case 'date_desc':
+      default:
+        return bDate - aDate;
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -368,7 +388,7 @@ const Cases = () => {
 
       {/* Cases Table */}
       <div className="card">
-        <div className="overflow-hidden">
+        <div className="overflow-x-auto">
           <table className="table">
             <thead className="table-header">
               <tr>
@@ -380,7 +400,7 @@ const Cases = () => {
                 <th className="table-header-cell">Priority</th>
                 <th className="table-header-cell">Assigned To</th>
                 <th className="table-header-cell">Date</th>
-                <th className="table-header-cell">Actions</th>
+                <th className="table-header-cell text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="table-body">
@@ -399,7 +419,7 @@ const Cases = () => {
                   </td>
                 </tr>
               ) : (
-                cases.map((case_) => (
+                sortedCases.map((case_) => (
                   <tr key={case_._id} className="table-row">
                     <td className="table-cell font-mono text-sm">
                       {case_.caseNumber}
@@ -410,13 +430,13 @@ const Cases = () => {
                           {case_.title}
                         </div>
                         <div className="text-sm text-gray-500 truncate max-w-xs">
-                          {case_.infringedContent}
+                          {case_.infringedContent || case_.infringed_content}
                         </div>
                       </div>
                     </td>
                     <td className="table-cell">
                       <span className="text-sm text-gray-900">
-                        {case_.incidentType.replace('_', ' ')}
+                        {(case_.incidentType || case_.incident_type || '').replace('_', ' ')}
                       </span>
                     </td>
                     <td className="table-cell">
@@ -449,14 +469,14 @@ const Cases = () => {
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                         <span className="text-sm text-gray-900">
-                          {new Date(case_.reportedAt).toLocaleDateString()}
+                          {new Date(case_.reportedAt || case_.reported_at).toLocaleDateString()}
                         </span>
                       </div>
                     </td>
-                    <td className="table-cell">
+                    <td className="table-cell whitespace-nowrap text-right">
                       <Link
                         to={`/cases/${case_._id}`}
-                        className="btn-outline btn-sm"
+                        className="btn-outline btn-sm inline-flex"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         View
