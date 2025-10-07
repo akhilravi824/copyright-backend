@@ -75,8 +75,8 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Start server
-const startServer = async () => {
+// Initialize database connection
+const initializeDatabase = async () => {
   try {
     // Connect to database
     await databaseService.connect();
@@ -92,18 +92,16 @@ const startServer = async () => {
       console.log('✅ Database indexes created successfully');
     }
     
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`🚀 DSP Brand Protection API running on port ${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🗄️  Database: ${process.env.DATABASE_TYPE || 'mongodb'}`);
-    });
+    console.log(`🚀 DSP Brand Protection API initialized`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🗄️  Database: ${process.env.DATABASE_TYPE || 'mongodb'}`);
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    console.error('❌ Failed to initialize database:', error);
+    // Don't exit process on Vercel
   }
 };
 
-startServer();
+// Initialize database on startup
+initializeDatabase();
 
 module.exports = app;
