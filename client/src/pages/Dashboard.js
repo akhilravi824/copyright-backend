@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import {
   FileText,
@@ -28,6 +29,8 @@ import {
 } from 'recharts';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  
   const { data: stats, isLoading } = useQuery(
     'dashboard-stats',
     () => api.get('/api/cases/stats/dashboard').then(res => res.data),
@@ -246,19 +249,31 @@ const Dashboard = () => {
           </div>
           <div className="card-body">
             <div className="space-y-3">
-              <button className="w-full btn-primary">
+              <button 
+                className="w-full btn-primary"
+                onClick={() => navigate('/incidents/new')}
+              >
                 <FileText className="h-4 w-4 mr-2" />
                 Report New Incident
               </button>
-              <button className="w-full btn-outline">
+              <button 
+                className="w-full btn-outline"
+                onClick={() => navigate('/cases')}
+              >
                 <Search className="h-4 w-4 mr-2" />
                 Search Cases
               </button>
-              <button className="w-full btn-outline">
+              <button 
+                className="w-full btn-outline"
+                onClick={() => navigate('/templates')}
+              >
                 <Shield className="h-4 w-4 mr-2" />
                 Generate Legal Document
               </button>
-              <button className="w-full btn-outline">
+              <button 
+                className="w-full btn-outline"
+                onClick={() => navigate('/monitoring')}
+              >
                 <Activity className="h-4 w-4 mr-2" />
                 View Monitoring Alerts
               </button>
