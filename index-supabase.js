@@ -551,6 +551,52 @@ app.get('/api/cases', async (req, res) => {
   }
 });
 
+// Get single case detail
+app.get('/api/cases/:id', async (req, res) => {
+  console.log('🔍 Case detail requested:', req.params.id);
+  try {
+    const { data: incident, error } = await supabase
+      .from('incidents')
+      .select(`
+        *,
+        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
+        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
+      `)
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching case:', error);
+      return res.status(404).json({ message: 'Case not found' });
+    }
+
+    console.log('✅ Case found:', incident.id);
+    res.json({
+      id: incident.id,
+      title: incident.title,
+      description: incident.description,
+      incidentType: incident.incident_type,
+      status: incident.status,
+      priority: incident.priority,
+      severity: incident.severity,
+      caseNumber: incident.case_number,
+      reporter: incident.reporter,
+      assignedTo: incident.assigned_user,
+      infringedContent: incident.infringed_content,
+      infringedUrls: incident.infringed_urls,
+      infringerInfo: incident.infringer_info,
+      tags: incident.tags,
+      evidenceFiles: incident.evidence_files,
+      notes: incident.notes,
+      createdAt: incident.created_at,
+      updatedAt: incident.updated_at
+    });
+  } catch (error) {
+    console.error('❌ Case detail error:', error);
+    res.status(500).json({ message: 'Failed to fetch case' });
+  }
+});
+
 app.get('/api/cases/stats/dashboard', async (req, res) => {
   console.log('📊 Dashboard stats requested');
   try {
