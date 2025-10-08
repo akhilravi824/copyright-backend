@@ -13,7 +13,8 @@ import {
   Filter,
   Eye,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  Search
 } from 'lucide-react';
 
 const Cases = () => {
@@ -301,15 +302,16 @@ const Cases = () => {
 
             <div>
               <label className="form-label">Search</label>
-              <SearchSuggestions
-                placeholder="Search cases..."
-                onSearch={handleSearch}
-                onSuggestionSelect={handleSuggestionSelect}
-                showFilters={true}
-                onFilterChange={handleQuickFilter}
-                currentFilters={filters}
-                className="w-full"
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by title, description, or case number..."
+                  className="form-input pl-10 w-full"
+                  value={filters.search}
+                  onChange={(e) => handleSearch(e.target.value)}
+                />
+              </div>
             </div>
 
             <div>
