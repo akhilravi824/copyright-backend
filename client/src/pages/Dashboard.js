@@ -196,62 +196,63 @@ const Dashboard = () => {
 
       {/* Charts Grid - Hide for analysts */}
       {!isAnalyst && (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Monthly Trends */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-medium text-gray-900">Monthly Trends</h3>
-            <p className="mt-1 text-sm text-gray-500">Cases reported over time</p>
+      <>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Monthly Trends */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="text-lg font-medium text-gray-900">Monthly Trends</h3>
+              <p className="mt-1 text-sm text-gray-500">Cases reported over time</p>
+            </div>
+            <div className="card-body">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={formatMonthlyData(monthlyTrends)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-          <div className="card-body">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={formatMonthlyData(monthlyTrends)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="count" stroke="#3B82F6" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+
+          {/* Status Breakdown */}
+          <div className="card">
+            <div className="card-header">
+              <h3 className="text-lg font-medium text-gray-900">Status Breakdown</h3>
+              <p className="mt-1 text-sm text-gray-500">Distribution of case statuses</p>
+            </div>
+            <div className="card-body">
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusBreakdown}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ status, _id, count }) => `${status || _id}: ${count}`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {statusBreakdown.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={statusColors[entry.status || entry._id] || '#6B7280'} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Status Breakdown */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="text-lg font-medium text-gray-900">Status Breakdown</h3>
-            <p className="mt-1 text-sm text-gray-500">Distribution of case statuses</p>
-          </div>
-          <div className="card-body">
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ status, _id, count }) => `${status || _id}: ${count}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {statusBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={statusColors[entry.status || entry._id] || '#6B7280'} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Type Breakdown and Recent Activity */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Type Breakdown and Recent Activity */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Incident Types */}
         <div className="card">
           <div className="card-header">
@@ -317,6 +318,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+      </>
       )}
 
       {/* Priority Alerts - Hide for analysts */}
