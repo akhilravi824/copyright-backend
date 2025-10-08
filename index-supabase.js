@@ -973,7 +973,10 @@ app.get('/api/incidents/:id', async (req, res) => {
 
 // Soft delete incident (admin/manager only) - DELETE comes after GET
 app.delete('/api/incidents/:id', async (req, res) => {
-  console.log('🗑️ Soft deleting incident:', req.params.id);
+  console.log('🗑️ DELETE request received for incident:', req.params.id);
+  console.log('🗑️ Request method:', req.method);
+  console.log('🗑️ Request body:', req.body);
+  console.log('🗑️ Request headers:', req.headers);
   try {
     const { reason, userId } = req.body;
     
@@ -1042,12 +1045,33 @@ app.use((err, req, res, next) => {
 // 404 handler with detailed logging
 app.use('*', (req, res) => {
   console.log('❌ Route not found:', req.method, req.originalUrl);
-  console.log('🔍 Available routes: /test, /api/health, /api/auth/login, /api/auth/me, /api/users, /api/users/stats/overview, /api/cases, /api/cases/stats/dashboard, /api/incidents, /api/upload, /api/upload/multiple');
+  console.log('🔍 Request method:', req.method);
+  console.log('🔍 Request path:', req.path);
+  console.log('🔍 Request params:', req.params);
+  console.log('🔍 Available routes: /test, /api/health, /api/auth/*, /api/users/*, /api/cases/*, /api/incidents/*, /api/upload/*');
   res.status(404).json({ 
     message: 'Route not found',
     method: req.method,
     path: req.originalUrl,
-    availableRoutes: ['/test', '/api/health', '/api/auth/login', '/api/auth/me', '/api/users', '/api/users/stats/overview', '/api/cases', '/api/cases/stats/dashboard', '/api/incidents', '/api/upload', '/api/upload/multiple']
+    requestedPath: req.path,
+    availableRoutes: [
+      'GET /test',
+      'GET /api/health',
+      'POST /api/auth/login',
+      'GET /api/auth/me',
+      'GET /api/users',
+      'GET /api/users/stats/overview',
+      'GET /api/cases',
+      'GET /api/cases/stats/dashboard',
+      'GET /api/incidents',
+      'GET /api/incidents/deleted/list',
+      'GET /api/incidents/:id',
+      'POST /api/incidents',
+      'POST /api/incidents/:id/restore',
+      'DELETE /api/incidents/:id',
+      'POST /api/upload',
+      'POST /api/upload/multiple'
+    ]
   });
 });
 
