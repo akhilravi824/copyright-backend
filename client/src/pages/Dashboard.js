@@ -45,7 +45,11 @@ const Dashboard = () => {
       if (isAnalyst) {
         // Fetch analyst's own incidents and calculate stats
         const response = await api.get(apiEndpoint);
-        const incidents = response.data.incidents || [];
+        const allIncidents = response.data.incidents || [];
+        // Filter out incidents without a reporter or not belonging to this analyst
+        const incidents = allIncidents.filter(i => 
+          i.reporter && i.reporter.email === user.email
+        );
         return {
           totalCases: incidents.length,
           activeCases: incidents.filter(i => ['reported', 'under_review', 'in_progress'].includes(i.status)).length,

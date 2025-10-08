@@ -34,7 +34,21 @@ const Incidents = () => {
 
   const { data, isLoading, error } = useQuery(
     ['incidents', filters, user?.id],
-    () => api.get('/api/incidents', { params: filters }).then(res => res.data),
+    () => api.get('/api/incidents', { params: filters }).then(res => {
+      // For analysts, filter out incidents without a reporter (client-side workaround)
+      if (isAnalyst && res.data?.incidents) {
+        return {
+          ...res.data,
+          incidents: res.data.incidents.filter(incident => 
+            incident.reporter && incident.reporter.email === user.email
+          ),
+          total: res.data.incidents.filter(incident => 
+            incident.reporter && incident.reporter.email === user.email
+          ).length
+        };
+      }
+      return res.data;
+    }),
     {
       keepPreviousData: true,
     }
