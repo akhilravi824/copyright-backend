@@ -35,16 +35,25 @@ const Incidents = () => {
   const { data, isLoading, error } = useQuery(
     ['incidents', filters, user?.id],
     () => api.get('/api/incidents', { params: filters }).then(res => {
+      console.log('🔍 Incidents Query - User:', user);
+      console.log('🔍 Is Analyst:', isAnalyst);
+      console.log('🔍 Raw incidents count:', res.data?.incidents?.length);
+      
       // For analysts, filter out incidents without a reporter (client-side workaround)
       if (isAnalyst && res.data?.incidents) {
+        const filtered = res.data.incidents.filter(incident => {
+          const hasReporter = !!incident.reporter;
+          const emailMatches = incident.reporter?.email === user.email;
+          console.log('📋 Incident:', incident.title, 'Reporter:', incident.reporter?.email, 'User:', user.email, 'Match:', emailMatches);
+          return hasReporter && emailMatches;
+        });
+        
+        console.log('✅ Filtered incidents count:', filtered.length);
+        
         return {
           ...res.data,
-          incidents: res.data.incidents.filter(incident => 
-            incident.reporter && incident.reporter.email === user.email
-          ),
-          total: res.data.incidents.filter(incident => 
-            incident.reporter && incident.reporter.email === user.email
-          ).length
+          incidents: filtered,
+          total: filtered.length
         };
       }
       return res.data;
