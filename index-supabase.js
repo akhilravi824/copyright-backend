@@ -530,7 +530,12 @@ app.get('/api/cases', async (req, res) => {
 
       // Apply filters
       if (search) {
+        console.log('🔎 Applying search filter:', search);
+        const searchPattern = `%${search}%`;
+        console.log('🔍 Search pattern:', searchPattern);
+        // Supabase ilike syntax
         query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`);
+        console.log('✅ Search filter applied');
       }
       if (status) {
         query = query.eq('status', status);
@@ -566,6 +571,8 @@ app.get('/api/cases', async (req, res) => {
       console.error('❌ Error fetching all cases for stats:', allError);
       return res.status(500).json({ message: 'Failed to fetch cases for stats', error: allError.message });
     }
+    
+    console.log(`📊 Found ${allCases?.length || 0} cases matching filters`);
 
     // Calculate stats from all filtered cases
     const stats = {
