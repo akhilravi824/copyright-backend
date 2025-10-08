@@ -13,19 +13,8 @@ import {
   Filter,
   Eye,
   BarChart3,
-  TrendingUp,
-  XCircle
+  TrendingUp
 } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts';
 
 const Cases = () => {
   const location = useLocation();
@@ -148,44 +137,6 @@ const Cases = () => {
     );
   };
 
-  // Calculate monthly trends for opened vs closed cases
-  const calculateMonthlyTrends = (cases) => {
-    if (!cases || cases.length === 0) return [];
-
-    const monthlyData = {};
-
-    // Group cases by month
-    cases.forEach(caseItem => {
-      const createdDate = new Date(caseItem.createdAt);
-      const createdMonth = `${createdDate.getFullYear()}-${String(createdDate.getMonth() + 1).padStart(2, '0')}`;
-      
-      // Initialize month if not exists
-      if (!monthlyData[createdMonth]) {
-        monthlyData[createdMonth] = { month: createdMonth, opened: 0, closed: 0 };
-      }
-      
-      // Count as opened
-      monthlyData[createdMonth].opened += 1;
-      
-      // Count as closed if status is resolved or closed
-      if (['resolved', 'closed'].includes(caseItem.status)) {
-        const updatedDate = new Date(caseItem.updatedAt || caseItem.createdAt);
-        const closedMonth = `${updatedDate.getFullYear()}-${String(updatedDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!monthlyData[closedMonth]) {
-          monthlyData[closedMonth] = { month: closedMonth, opened: 0, closed: 0 };
-        }
-        
-        monthlyData[closedMonth].closed += 1;
-      }
-    });
-
-    // Convert to array and sort by month
-    return Object.values(monthlyData)
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-6); // Last 6 months
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -247,27 +198,8 @@ const Cases = () => {
         </div>
       </div>
 
-      {/* Type Filter Badge */}
-      {filters.incidentType && (
-        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <Filter className="h-5 w-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">
-              Filtered by: <span className="font-bold">{filters.incidentType.replace(/_/g, ' ').toUpperCase()}</span>
-            </span>
-          </div>
-          <button
-            onClick={() => handleFilterChange('incidentType', '')}
-            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-          >
-            <XCircle className="h-4 w-4" />
-            <span className="text-sm">Clear Filter</span>
-          </button>
-        </div>
-      )}
-
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card">
           <div className="card-body">
             <div className="flex items-center">
@@ -290,35 +222,15 @@ const Cases = () => {
           <div className="card-body">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="p-3 rounded-md bg-indigo-500">
-                  <FileText className="h-6 w-6 text-white" />
-                </div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Reported</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {cases.filter(c => c.status === 'reported').length}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-body">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
                 <div className="p-3 rounded-md bg-yellow-500">
                   <Clock className="h-6 w-6 text-white" />
                 </div>
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">In Progress</dt>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Open Cases</dt>
                   <dd className="text-2xl font-semibold text-gray-900">
-                    {cases.filter(c => ['under_review', 'in_progress'].includes(c.status)).length}
+                    {cases.filter(c => ['reported', 'under_review', 'in_progress'].includes(c.status)).length}
                   </dd>
                 </dl>
               </div>
@@ -336,7 +248,7 @@ const Cases = () => {
               </div>
               <div className="ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Closed</dt>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Resolved</dt>
                   <dd className="text-2xl font-semibold text-gray-900">
                     {cases.filter(c => ['resolved', 'closed'].includes(c.status)).length}
                   </dd>
@@ -364,41 +276,6 @@ const Cases = () => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Monthly Trends Chart */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="text-lg font-medium text-gray-900">Monthly Trends</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Cases opened vs closed{filters.incidentType ? ` for ${filters.incidentType.replace(/_/g, ' ')}` : ''}
-          </p>
-        </div>
-        <div className="card-body">
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={calculateMonthlyTrends(cases)}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="opened" 
-                stroke="#3B82F6" 
-                strokeWidth={2}
-                name="Cases Opened"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="closed" 
-                stroke="#10B981" 
-                strokeWidth={2}
-                name="Cases Closed"
-              />
-            </LineChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
