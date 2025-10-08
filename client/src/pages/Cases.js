@@ -155,7 +155,7 @@ const Cases = () => {
     );
   }
 
-  const { cases, pagination } = data || { cases: [], pagination: {} };
+  const { cases, pagination, stats } = data || { cases: [], pagination: {}, stats: { total: 0, open: 0, resolved: 0, critical: 0 } };
   const severityRank = { critical: 4, high: 3, medium: 2, low: 1 };
   const sortedCases = [...cases].sort((a, b) => {
     const sort = filters.sort;
@@ -199,7 +199,7 @@ const Cases = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Total Cases</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{pagination?.total || 0}</dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.total}</dd>
                 </dl>
               </div>
             </div>
@@ -217,9 +217,7 @@ const Cases = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Open Cases</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {cases.filter(c => ['reported', 'under_review', 'in_progress'].includes(c.status)).length}
-                  </dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.open}</dd>
                 </dl>
               </div>
             </div>
@@ -237,9 +235,7 @@ const Cases = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Resolved</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {cases.filter(c => ['resolved', 'closed'].includes(c.status)).length}
-                  </dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.resolved}</dd>
                 </dl>
               </div>
             </div>
@@ -257,9 +253,7 @@ const Cases = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Critical</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {cases.filter(c => c.severity === 'critical').length}
-                  </dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.critical}</dd>
                 </dl>
               </div>
             </div>
