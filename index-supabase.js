@@ -341,14 +341,22 @@ app.get('/api/users/stats/overview', async (req, res) => {
 app.post('/api/users', async (req, res) => {
   console.log('➕ Creating new user:', req.body);
   try {
+    // Map frontend field names to database field names
     const userData = {
-      ...req.body,
       first_name: req.body.firstName,
       last_name: req.body.lastName,
+      email: req.body.email,
+      password: req.body.password || 'changeme123', // Default password
+      role: req.body.role || 'viewer',
+      department: req.body.department || 'legal',
+      phone: req.body.phone || null,
+      job_title: req.body.jobTitle || null,
       is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
+
+    console.log('📤 Creating user with data:', userData);
 
     const { data: user, error } = await supabase
       .from('users')
@@ -358,26 +366,35 @@ app.post('/api/users', async (req, res) => {
 
     if (error) {
       console.error('❌ Error creating user:', error);
-      return res.status(500).json({ message: 'Failed to create user' });
+      return res.status(500).json({ message: 'Failed to create user', error: error.message });
     }
 
     console.log('✅ User created:', user.id);
     res.json({ user });
   } catch (error) {
     console.error('❌ Create user error:', error);
-    res.status(500).json({ message: 'Failed to create user' });
+    res.status(500).json({ message: 'Failed to create user', error: error.message });
   }
 });
 
 app.put('/api/users/:id', async (req, res) => {
   console.log('✏️ Updating user:', req.params.id);
+  console.log('📦 Update data received:', req.body);
   try {
+    // Map frontend field names to database field names
     const updateData = {
-      ...req.body,
       first_name: req.body.firstName,
       last_name: req.body.lastName,
+      email: req.body.email,
+      role: req.body.role,
+      department: req.body.department,
+      phone: req.body.phone || null,
+      job_title: req.body.jobTitle || null,
+      is_active: req.body.isActive !== undefined ? req.body.isActive : true,
       updated_at: new Date().toISOString()
     };
+
+    console.log('📤 Sending to Supabase:', updateData);
 
     const { data: user, error } = await supabase
       .from('users')
@@ -388,14 +405,14 @@ app.put('/api/users/:id', async (req, res) => {
 
     if (error) {
       console.error('❌ Error updating user:', error);
-      return res.status(500).json({ message: 'Failed to update user' });
+      return res.status(500).json({ message: 'Failed to update user', error: error.message });
     }
 
     console.log('✅ User updated:', user.id);
     res.json({ user });
   } catch (error) {
     console.error('❌ Update user error:', error);
-    res.status(500).json({ message: 'Failed to update user' });
+    res.status(500).json({ message: 'Failed to update user', error: error.message });
   }
 });
 
@@ -475,14 +492,20 @@ app.delete('/api/users/:id', async (req, res) => {
 
     if (error) {
       console.error('❌ Error deactivating user:', error);
-      return res.status(500).json({ message: 'Failed to deactivate user' });
+      console.error('❌ Supabase error details:', JSON.stringify(error, null, 2));
+      return res.status(500).json({ message: 'Failed to deactivate user', error: error.message });
+    }
+
+    if (!user) {
+      console.error('❌ User not found:', req.params.id);
+      return res.status(404).json({ message: 'User not found' });
     }
 
     console.log('✅ User deactivated:', user.id);
-    res.json({ message: 'User deactivated successfully' });
+    res.json({ message: 'User deactivated successfully', user });
   } catch (error) {
     console.error('❌ Deactivate user error:', error);
-    res.status(500).json({ message: 'Failed to deactivate user' });
+    res.status(500).json({ message: 'Failed to deactivate user', error: error.message });
   }
 });
 
