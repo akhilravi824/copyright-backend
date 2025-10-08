@@ -418,7 +418,7 @@ const Cases = () => {
                 </tr>
               ) : (
                 sortedCases.map((case_) => (
-                  <tr key={case_._id} className="table-row">
+                  <tr key={case_.id} className="table-row">
                     <td className="table-cell font-mono text-sm">
                       {case_.caseNumber}
                     </td>
@@ -473,7 +473,7 @@ const Cases = () => {
                     </td>
                     <td className="table-cell whitespace-nowrap text-right">
                       <Link
-                        to={`/cases/${case_._id}`}
+                        to={`/cases/${case_.id}`}
                         className="btn-outline btn-sm inline-flex"
                       >
                         <Eye className="h-4 w-4 mr-1" />
