@@ -155,7 +155,16 @@ const Cases = () => {
     );
   }
 
-  const { cases, pagination, stats } = data || { cases: [], pagination: {}, stats: { total: 0, open: 0, resolved: 0, critical: 0 } };
+  const { cases = [], pagination = {}, stats = { total: 0, open: 0, resolved: 0, critical: 0 } } = data || {};
+  
+  // Ensure pagination has default values
+  const paginationData = {
+    current: pagination.current || pagination.page || 1,
+    limit: pagination.limit || 10,
+    total: pagination.total || 0,
+    pages: pagination.pages || 1
+  };
+
   const severityRank = { critical: 4, high: 3, medium: 2, low: 1 };
   const sortedCases = [...cases].sort((a, b) => {
     const sort = filters.sort;
@@ -470,28 +479,28 @@ const Cases = () => {
         </div>
 
         {/* Pagination */}
-        {pagination && pagination.pages > 1 && (
+        {paginationData && paginationData.pages > 1 && (
           <div className="card-footer">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-700">
-                Showing {((pagination.current - 1) * pagination.limit) + 1} to{' '}
-                {Math.min(pagination.current * pagination.limit, pagination.total)} of{' '}
-                {pagination.total} results
+                Showing {((paginationData.current - 1) * paginationData.limit) + 1} to{' '}
+                {Math.min(paginationData.current * paginationData.limit, paginationData.total)} of{' '}
+                {paginationData.total} results
               </div>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => handleFilterChange('page', pagination.current - 1)}
-                  disabled={pagination.current === 1}
+                  onClick={() => handleFilterChange('page', paginationData.current - 1)}
+                  disabled={paginationData.current === 1}
                   className="btn-outline btn-sm disabled:opacity-50"
                 >
                   Previous
                 </button>
                 <span className="flex items-center px-3 py-1 text-sm text-gray-700">
-                  Page {pagination.current} of {pagination.pages}
+                  Page {paginationData.current} of {paginationData.pages}
                 </span>
                 <button
-                  onClick={() => handleFilterChange('page', pagination.current + 1)}
-                  disabled={pagination.current === pagination.pages}
+                  onClick={() => handleFilterChange('page', paginationData.current + 1)}
+                  disabled={paginationData.current === paginationData.pages}
                   className="btn-outline btn-sm disabled:opacity-50"
                 >
                   Next
