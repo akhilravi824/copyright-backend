@@ -13,11 +13,6 @@ const DeleteIncidentButton = ({ incident, onSuccess, variant = 'button' }) => {
   const [showModal, setShowModal] = useState(false);
   const [reason, setReason] = useState('');
 
-  // Only show for admin and manager
-  if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
-    return null;
-  }
-
   const deleteMutation = useMutation(
     () => api.delete(`/api/incidents/${incident.id}`, { 
       data: { 
@@ -52,6 +47,11 @@ const DeleteIncidentButton = ({ incident, onSuccess, variant = 'button' }) => {
   const confirmDelete = () => {
     deleteMutation.mutate();
   };
+
+  // Only show for admin and manager
+  if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+    return null;
+  }
 
   // Icon button variant (for tables/lists)
   if (variant === 'icon') {

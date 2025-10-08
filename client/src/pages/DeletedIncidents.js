@@ -21,23 +21,6 @@ const DeletedIncidents = () => {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
 
-  // Check if user is admin or manager
-  if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
-          <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
-            <AlertTriangle className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Access Denied</h2>
-          <p className="text-gray-600 text-center">
-            Only administrators and managers can view deleted incidents.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   // Fetch deleted incidents
   const { data: deletedData, isLoading, error } = useQuery(
     ['deleted-incidents', user?.id],
@@ -68,6 +51,23 @@ const DeletedIncidents = () => {
     setSelectedIncident(incident);
     setShowRestoreModal(true);
   };
+
+  // Check if user is admin or manager
+  if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md">
+          <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">Access Denied</h2>
+          <p className="text-gray-600 text-center">
+            Only administrators and managers can view deleted incidents.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const confirmRestore = () => {
     if (selectedIncident) {
