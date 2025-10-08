@@ -53,6 +53,33 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Test search endpoint for debugging
+app.get('/api/test-search', async (req, res) => {
+  try {
+    const { search } = req.query;
+    console.log('🧪 Test search:', search);
+    
+    const searchPattern = `%${search}%`;
+    
+    const { data, error } = await supabase
+      .from('incidents')
+      .select('id, title, description, case_number')
+      .or(`title.ilike.${searchPattern},description.ilike.${searchPattern},case_number.ilike.${searchPattern}`)
+      .limit(5);
+    
+    if (error) {
+      console.error('❌ Test search error:', error);
+      return res.status(500).json({ error: error.message, details: error });
+    }
+    
+    console.log(`✅ Test search found ${data?.length || 0} results`);
+    res.json({ search, searchPattern, results: data, count: data?.length || 0 });
+  } catch (error) {
+    console.error('❌ Test search exception:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Auth endpoints
 app.post('/api/auth/login', async (req, res) => {
   console.log('🔐 Login attempt:', req.body);
@@ -531,10 +558,15 @@ app.get('/api/cases', async (req, res) => {
       // Apply filters
       if (search) {
         console.log('🔎 Applying search filter:', search);
+        // Supabase JS client method for case-insensitive search
         const searchPattern = `%${search}%`;
         console.log('🔍 Search pattern:', searchPattern);
-        // Supabase ilike syntax
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`);
+        // Use the .or() method with proper filter syntax
+        query = query.or(
+          `title.ilike.${searchPattern},` +
+          `description.ilike.${searchPattern},` +
+          `case_number.ilike.${searchPattern}`
+        );
         console.log('✅ Search filter applied');
       }
       if (status) {
@@ -565,14 +597,19 @@ app.get('/api/cases', async (req, res) => {
 
     // Get all cases for stats (before pagination)
     const allCasesQuery = buildQuery();
+    console.log('📝 Query built for stats');
     const { data: allCases, error: allError } = await allCasesQuery;
     
     if (allError) {
       console.error('❌ Error fetching all cases for stats:', allError);
+      console.error('❌ Supabase error details:', JSON.stringify(allError, null, 2));
       return res.status(500).json({ message: 'Failed to fetch cases for stats', error: allError.message });
     }
     
     console.log(`📊 Found ${allCases?.length || 0} cases matching filters`);
+    if (search && allCases) {
+      console.log('🔍 Sample titles:', allCases.slice(0, 3).map(c => c.title));
+    }
 
     // Calculate stats from all filtered cases
     const stats = {
