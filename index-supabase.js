@@ -574,11 +574,15 @@ app.get('/api/cases', async (req, res) => {
       // Apply filters
       if (search) {
         console.log('🔎 Applying search filter:', search);
-        // Supabase requires escaping special characters and proper formatting
         const searchPattern = `%${search}%`;
         console.log('🔍 Search pattern:', searchPattern);
-        // Use .or() with PostgREST syntax - the pattern must be inside quotes
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`);
+        
+        // IMPORTANT: Supabase PostgREST or() syntax requires proper escaping
+        // For ilike with wildcards in or(), the format is: column.ilike.*pattern*
+        // where *pattern* includes the % wildcards
+        const orQuery = `title.ilike.*${search}*,description.ilike.*${search}*,case_number.ilike.*${search}*`;
+        console.log('🔍 OR Query string:', orQuery);
+        query = query.or(orQuery);
         console.log('✅ Search filter applied to title, description, case_number');
       }
       if (status) {
