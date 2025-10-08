@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../api/api';
 import toast from 'react-hot-toast';
+import DeleteIncidentButton from '../components/DeleteIncidentButton';
 import {
   ArrowLeft,
   Calendar,
@@ -159,6 +160,10 @@ const IncidentDetail = () => {
             <Send className="h-4 w-4 mr-2" />
             Generate Document
           </button>
+          <DeleteIncidentButton 
+            incident={incident} 
+            onSuccess={() => navigate('/incidents')} 
+          />
         </div>
       </div>
 

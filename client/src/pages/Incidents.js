@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import api from '../api/api';
 import { Link } from 'react-router-dom';
+import DeleteIncidentButton from '../components/DeleteIncidentButton';
 import {
   FileText,
   Clock,
@@ -316,13 +317,16 @@ const Incidents = () => {
                       </div>
                     </td>
                     <td className="table-cell whitespace-nowrap text-right">
-                      <Link
-                        to={`/incidents/${incidentId}`}
-                        className="btn-outline btn-sm inline-flex"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Link>
+                      <div className="flex items-center justify-end space-x-2">
+                        <Link
+                          to={`/incidents/${incidentId}`}
+                          className="btn-outline btn-sm inline-flex"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Link>
+                        <DeleteIncidentButton incident={incident} variant="icon" />
+                      </div>
                     </td>
                   </tr>
                   );
