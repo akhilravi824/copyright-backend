@@ -1076,5 +1076,6 @@ app.use('*', (req, res) => {
 console.log('🚀 Supabase-connected backend initialized with logging');
 console.log('📊 Environment:', process.env.NODE_ENV || 'development');
 console.log('🗄️ Database: Supabase');
+console.log('✅ Soft delete endpoint: POST /api/incidents/:id/delete');
 
 module.exports = app;
