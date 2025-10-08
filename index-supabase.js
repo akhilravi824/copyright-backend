@@ -800,109 +800,7 @@ app.post('/api/incidents', upload.array('evidenceFiles', 10), async (req, res) =
   }
 });
 
-app.get('/api/incidents/:id', async (req, res) => {
-  console.log('🔍 Incident detail requested:', req.params.id);
-  try {
-    const { data: incident, error } = await supabase
-      .from('incidents')
-      .select(`
-        *,
-        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
-        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
-      `)
-      .eq('id', req.params.id)
-      .single();
-
-    if (error) {
-      console.error('❌ Error fetching incident:', error);
-      return res.status(404).json({ message: 'Incident not found' });
-    }
-
-    console.log('✅ Incident found:', incident.id);
-    res.json({
-      id: incident.id,
-      title: incident.title,
-      description: incident.description,
-      incidentType: incident.incident_type,
-      status: incident.status,
-      priority: incident.priority,
-      severity: incident.severity,
-      caseNumber: incident.case_number,
-      reporter: incident.reporter,
-      assignedTo: incident.assigned_user,
-      infringedContent: incident.infringed_content,
-      infringedUrls: incident.infringed_urls,
-      infringerInfo: incident.infringer_info,
-      tags: incident.tags,
-      notes: incident.notes,
-      createdAt: incident.created_at,
-      updatedAt: incident.updated_at
-    });
-  } catch (error) {
-    console.error('❌ Incident detail error:', error);
-    res.status(500).json({ message: 'Failed to fetch incident' });
-  }
-});
-
-// Soft delete incident (admin/manager only)
-app.delete('/api/incidents/:id', async (req, res) => {
-  console.log('🗑️ Soft deleting incident:', req.params.id);
-  try {
-    const { reason, userId } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ message: 'User ID is required for audit trail' });
-    }
-
-    // Check if user is admin or manager
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !user) {
-      return res.status(403).json({ message: 'Unauthorized: Invalid user' });
-    }
-
-    if (user.role !== 'admin' && user.role !== 'manager') {
-      return res.status(403).json({ message: 'Unauthorized: Only admins and managers can delete incidents' });
-    }
-
-    // Soft delete the incident
-    const { data: incident, error } = await supabase
-      .from('incidents')
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: userId,
-        deleted_reason: reason || null,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', req.params.id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('❌ Error soft deleting incident:', error);
-      return res.status(500).json({ message: 'Failed to delete incident' });
-    }
-
-    console.log('✅ Incident soft deleted:', incident.id);
-    res.json({ 
-      message: 'Incident deleted successfully',
-      incident: {
-        id: incident.id,
-        deletedAt: incident.deleted_at,
-        deletedBy: incident.deleted_by
-      }
-    });
-  } catch (error) {
-    console.error('❌ Soft delete error:', error);
-    res.status(500).json({ message: 'Failed to delete incident' });
-  }
-});
-
-// Get deleted incidents (admin/manager only)
+// Get deleted incidents (admin/manager only) - MUST come before /:id route
 app.get('/api/incidents/deleted/list', async (req, res) => {
   console.log('📋 Deleted incidents list requested');
   try {
@@ -970,7 +868,7 @@ app.get('/api/incidents/deleted/list', async (req, res) => {
   }
 });
 
-// Restore deleted incident (admin/manager only)
+// Restore deleted incident (admin/manager only) - MUST come before /:id route
 app.post('/api/incidents/:id/restore', async (req, res) => {
   console.log('♻️ Restoring incident:', req.params.id);
   try {
@@ -1025,6 +923,109 @@ app.post('/api/incidents/:id/restore', async (req, res) => {
   } catch (error) {
     console.error('❌ Restore error:', error);
     res.status(500).json({ message: 'Failed to restore incident' });
+  }
+});
+
+// Get incident by ID - comes AFTER specific routes
+app.get('/api/incidents/:id', async (req, res) => {
+  console.log('🔍 Incident detail requested:', req.params.id);
+  try {
+    const { data: incident, error } = await supabase
+      .from('incidents')
+      .select(`
+        *,
+        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
+        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
+      `)
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching incident:', error);
+      return res.status(404).json({ message: 'Incident not found' });
+    }
+
+    console.log('✅ Incident found:', incident.id);
+    res.json({
+      id: incident.id,
+      title: incident.title,
+      description: incident.description,
+      incidentType: incident.incident_type,
+      status: incident.status,
+      priority: incident.priority,
+      severity: incident.severity,
+      caseNumber: incident.case_number,
+      reporter: incident.reporter,
+      assignedTo: incident.assigned_user,
+      infringedContent: incident.infringed_content,
+      infringedUrls: incident.infringed_urls,
+      infringerInfo: incident.infringer_info,
+      tags: incident.tags,
+      notes: incident.notes,
+      createdAt: incident.created_at,
+      updatedAt: incident.updated_at
+    });
+  } catch (error) {
+    console.error('❌ Incident detail error:', error);
+    res.status(500).json({ message: 'Failed to fetch incident' });
+  }
+});
+
+// Soft delete incident (admin/manager only) - DELETE comes after GET
+app.delete('/api/incidents/:id', async (req, res) => {
+  console.log('🗑️ Soft deleting incident:', req.params.id);
+  try {
+    const { reason, userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required for audit trail' });
+    }
+
+    // Check if user is admin or manager
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      return res.status(403).json({ message: 'Unauthorized: Invalid user' });
+    }
+
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      return res.status(403).json({ message: 'Unauthorized: Only admins and managers can delete incidents' });
+    }
+
+    // Soft delete the incident
+    const { data: incident, error } = await supabase
+      .from('incidents')
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        deleted_reason: reason || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Error soft deleting incident:', error);
+      return res.status(500).json({ message: 'Failed to delete incident' });
+    }
+
+    console.log('✅ Incident soft deleted:', incident.id);
+    res.json({ 
+      message: 'Incident deleted successfully',
+      incident: {
+        id: incident.id,
+        deletedAt: incident.deleted_at,
+        deletedBy: incident.deleted_by
+      }
+    });
+  } catch (error) {
+    console.error('❌ Soft delete error:', error);
+    res.status(500).json({ message: 'Failed to delete incident' });
   }
 });
 
