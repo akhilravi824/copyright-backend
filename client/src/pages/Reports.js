@@ -24,12 +24,6 @@ const Reports = () => {
           <p className="mt-1 text-sm text-gray-500">
             This feature will provide comprehensive reporting and analytics capabilities.
           </p>
-          <div className="mt-6">
-            <button className="btn-primary">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Coming Soon
-            </button>
-          </div>
         </div>
       </div>
     </div>

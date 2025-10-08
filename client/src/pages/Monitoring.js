@@ -24,12 +24,6 @@ const Monitoring = () => {
           <p className="mt-1 text-sm text-gray-500">
             This feature will provide automated monitoring of DSP content across the web.
           </p>
-          <div className="mt-6">
-            <button className="btn-primary">
-              <Search className="h-4 w-4 mr-2" />
-              Coming Soon
-            </button>
-          </div>
         </div>
       </div>
     </div>
