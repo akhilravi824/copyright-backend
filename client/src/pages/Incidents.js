@@ -3,6 +3,7 @@ import { useQuery } from 'react-query';
 import api from '../api/api';
 import { Link } from 'react-router-dom';
 import DeleteIncidentButton from '../components/DeleteIncidentButton';
+import { useAuth } from '../contexts/AuthContext';
 import {
   FileText,
   Clock,
@@ -17,17 +18,22 @@ import {
 } from 'lucide-react';
 
 const Incidents = () => {
+  const { user } = useAuth();
+  const isAnalyst = user?.role === 'analyst';
+  
   const [filters, setFilters] = useState({
     status: '',
     incidentType: '',
     severity: '',
     search: '',
     sort: 'date_desc',
-    page: 1
+    page: 1,
+    // Automatically filter by reporter_id for analysts
+    ...(isAnalyst && { reporter_id: user.id })
   });
 
   const { data, isLoading, error } = useQuery(
-    ['incidents', filters],
+    ['incidents', filters, user?.id],
     () => api.get('/api/incidents', { params: filters }).then(res => res.data),
     {
       keepPreviousData: true,

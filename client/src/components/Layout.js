@@ -26,24 +26,36 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Incidents', href: '/incidents', icon: FileText },
-    { name: 'Cases', href: '/cases', icon: FolderOpen },
-    { name: 'Documents', href: '/documents', icon: FileCheck },
-    { name: 'Templates', href: '/templates', icon: LayoutTemplate },
-    { name: 'Monitoring', href: '/monitoring', icon: Search },
-    { name: 'Reports', href: '/reports', icon: BarChart3 },
-  ];
+  // Build navigation based on user role
+  const navigation = [];
+  
+  // Analyst role: Only Dashboard and Incidents
+  if (user?.role === 'analyst') {
+    navigation.push(
+      { name: 'Dashboard', href: '/dashboard', icon: Home },
+      { name: 'Incidents', href: '/incidents', icon: FileText }
+    );
+  } else {
+    // All other roles: Full navigation
+    navigation.push(
+      { name: 'Dashboard', href: '/dashboard', icon: Home },
+      { name: 'Incidents', href: '/incidents', icon: FileText },
+      { name: 'Cases', href: '/cases', icon: FolderOpen },
+      { name: 'Documents', href: '/documents', icon: FileCheck },
+      { name: 'Templates', href: '/templates', icon: LayoutTemplate },
+      { name: 'Monitoring', href: '/monitoring', icon: Search },
+      { name: 'Reports', href: '/reports', icon: BarChart3 }
+    );
+    
+    // Add admin-only navigation items
+    if (user?.role === 'admin') {
+      navigation.push({ name: 'Users', href: '/users', icon: Users });
+    }
 
-  // Add admin-only navigation items
-  if (user?.role === 'admin') {
-    navigation.push({ name: 'Users', href: '/users', icon: Users });
-  }
-
-  // Add deleted incidents for admin and manager
-  if (user?.role === 'admin' || user?.role === 'manager') {
-    navigation.push({ name: 'Deleted Incidents', href: '/deleted-incidents', icon: Trash2 });
+    // Add deleted incidents for admin and manager
+    if (user?.role === 'admin' || user?.role === 'manager') {
+      navigation.push({ name: 'Deleted Incidents', href: '/deleted-incidents', icon: Trash2 });
+    }
   }
 
   const isActive = (href) => {
@@ -193,12 +205,15 @@ const Layout = ({ children }) => {
           <div className="flex-1 px-4 flex justify-between">
             <div className="flex-1 flex">
               <div className="w-full flex md:ml-0">
-                <SearchSuggestions
-                  placeholder="Search cases, incidents, or content..."
-                  onSearch={handleGlobalSearch}
-                  onSuggestionSelect={handleGlobalSuggestionSelect}
-                  className="w-full"
-                />
+                {/* Hide search for analyst role */}
+                {user?.role !== 'analyst' && (
+                  <SearchSuggestions
+                    placeholder="Search cases, incidents, or content..."
+                    onSearch={handleGlobalSearch}
+                    onSuggestionSelect={handleGlobalSuggestionSelect}
+                    className="w-full"
+                  />
+                )}
               </div>
             </div>
             <div className="ml-4 flex items-center md:ml-6">

@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
   FileText,
   AlertTriangle,
@@ -30,10 +31,40 @@ import {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // For analysts, fetch only their own incidents
+  const isAnalyst = user?.role === 'analyst';
+  const apiEndpoint = isAnalyst 
+    ? `/api/incidents?reporter_id=${user.id}` 
+    : '/api/cases/stats/dashboard';
   
   const { data: stats, isLoading } = useQuery(
-    'dashboard-stats',
-    () => api.get('/api/cases/stats/dashboard').then(res => res.data),
+    ['dashboard-stats', user?.id, user?.role],
+    async () => {
+      if (isAnalyst) {
+        // Fetch analyst's own incidents and calculate stats
+        const response = await api.get(apiEndpoint);
+        const incidents = response.data.incidents || [];
+        return {
+          totalCases: incidents.length,
+          activeCases: incidents.filter(i => ['reported', 'under_review', 'in_progress'].includes(i.status)).length,
+          resolvedCases: incidents.filter(i => ['resolved', 'closed'].includes(i.status)).length,
+          criticalCases: incidents.filter(i => i.severity === 'critical').length,
+          recentIncidents: incidents.slice(0, 5).map(i => ({
+            id: i.id,
+            title: i.title,
+            type: i.incidentType || i.incident_type,
+            severity: i.severity,
+            status: i.status,
+            date: i.createdAt || i.created_at
+          }))
+        };
+      } else {
+        // Fetch full dashboard stats for other roles
+        return api.get(apiEndpoint).then(res => res.data);
+      }
+    },
     {
       refetchInterval: 30000, // Refetch every 30 seconds
     }
@@ -163,7 +194,8 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts Grid - Hide for analysts */}
+      {!isAnalyst && (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Monthly Trends */}
         <div className="card">
@@ -256,34 +288,39 @@ const Dashboard = () => {
                 <FileText className="h-4 w-4 mr-2" />
                 Report New Incident
               </button>
-              <button 
-                className="w-full btn-outline"
-                onClick={() => navigate('/cases')}
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Search Cases
-              </button>
-              <button 
-                className="w-full btn-outline"
-                onClick={() => navigate('/templates')}
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Generate Legal Document
-              </button>
-              <button 
-                className="w-full btn-outline"
-                onClick={() => navigate('/monitoring')}
-              >
-                <Activity className="h-4 w-4 mr-2" />
-                View Monitoring Alerts
-              </button>
+              {!isAnalyst && (
+                <>
+                  <button 
+                    className="w-full btn-outline"
+                    onClick={() => navigate('/cases')}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Search Cases
+                  </button>
+                  <button 
+                    className="w-full btn-outline"
+                    onClick={() => navigate('/templates')}
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Generate Legal Document
+                  </button>
+                  <button 
+                    className="w-full btn-outline"
+                    onClick={() => navigate('/monitoring')}
+                  >
+                    <Activity className="h-4 w-4 mr-2" />
+                    View Monitoring Alerts
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
+      )}
 
-      {/* Priority Alerts */}
-      {(overview.critical > 0 || overview.high > 0 || overview.urgent > 0) && (
+      {/* Priority Alerts - Hide for analysts */}
+      {!isAnalyst && (overview.critical > 0 || overview.high > 0 || overview.urgent > 0) && (
         <div className="card">
           <div className="card-header">
             <h3 className="text-lg font-medium text-gray-900">Priority Alerts</h3>
