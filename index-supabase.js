@@ -1032,6 +1032,13 @@ app.delete('/api/incidents/:id', async (req, res) => {
   }
 });
 
+// Test DELETE handler - to debug
+app.delete('*', (req, res) => {
+  console.log('🔥 WILDCARD DELETE CAUGHT:', req.originalUrl);
+  console.log('🔥 Method:', req.method);
+  res.status(200).json({ message: 'DELETE wildcard caught', path: req.originalUrl });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('❌ Error occurred:', err);
