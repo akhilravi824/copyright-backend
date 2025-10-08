@@ -586,7 +586,9 @@ app.get('/api/cases', async (req, res) => {
       return res.status(500).json({ message: 'Failed to fetch cases', error: error.message });
     }
 
-    console.log(`✅ Found ${cases?.length || 0} cases (page ${page} of ${Math.ceil(stats.total / limit)})`);
+    const totalPages = stats.total > 0 ? Math.ceil(stats.total / limit) : 1;
+    console.log(`✅ Found ${cases?.length || 0} cases (page ${page} of ${totalPages})`);
+    
     res.json({
       cases: (cases || []).map(incident => ({
         id: incident.id,
@@ -602,10 +604,11 @@ app.get('/api/cases', async (req, res) => {
         updatedAt: incident.updated_at
       })),
       pagination: {
+        current: parseInt(page),
         page: parseInt(page),
         limit: parseInt(limit),
         total: stats.total,
-        pages: Math.ceil(stats.total / limit)
+        pages: totalPages
       },
       stats: stats
     });
