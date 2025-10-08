@@ -811,16 +811,28 @@ app.get('/api/cases/stats/dashboard', async (req, res) => {
 // Incidents endpoints
 app.get('/api/incidents', async (req, res) => {
   console.log('📋 Incidents list requested');
+  console.log('🔍 Query params:', req.query);
   try {
-    const { data: incidents, error } = await supabase
+    const { reporter_id } = req.query;
+    
+    let query = supabase
       .from('incidents')
       .select(`
         *,
         reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
         assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
       `)
-      .is('deleted_at', null) // Exclude soft deleted incidents
-      .order('created_at', { ascending: false });
+      .is('deleted_at', null); // Exclude soft deleted incidents
+    
+    // Filter by reporter_id for analyst role
+    if (reporter_id) {
+      console.log('🔒 Filtering by reporter_id:', reporter_id);
+      query = query.eq('reporter_id', reporter_id);
+    }
+    
+    query = query.order('created_at', { ascending: false });
+    
+    const { data: incidents, error } = await query;
 
     if (error) {
       console.error('❌ Error fetching incidents:', error);
