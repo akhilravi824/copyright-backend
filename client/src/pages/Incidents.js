@@ -40,7 +40,7 @@ const Incidents = () => {
       console.log('🔍 Raw incidents count:', res.data?.incidents?.length);
       
       // For analysts, filter out incidents without a reporter (client-side workaround)
-      if (isAnalyst && res.data?.incidents) {
+      if (isAnalyst && res.data?.incidents && user?.email) {
         const filtered = res.data.incidents.filter(incident => {
           const hasReporter = !!incident.reporter;
           const emailMatches = incident.reporter?.email === user.email;
@@ -60,6 +60,7 @@ const Incidents = () => {
     }),
     {
       keepPreviousData: true,
+      enabled: !!user, // Only run query when user is loaded
     }
   );
 
