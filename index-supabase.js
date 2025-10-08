@@ -53,6 +53,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// TEST DELETE endpoint - placed early to test if DELETE works at all
+app.delete('/api/test-delete', (req, res) => {
+  console.log('🔥 TEST DELETE ENDPOINT HIT!');
+  res.json({ message: 'DELETE is working!', method: req.method });
+});
+
+// TEST DELETE with parameter
+app.delete('/api/test-delete/:id', (req, res) => {
+  console.log('🔥 TEST DELETE WITH ID HIT!', req.params.id);
+  res.json({ message: 'DELETE with ID is working!', id: req.params.id });
+});
+
 // Auth endpoints
 app.post('/api/auth/login', async (req, res) => {
   console.log('🔐 Login attempt:', req.body);
