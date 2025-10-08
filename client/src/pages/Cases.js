@@ -179,23 +179,11 @@ const Cases = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Case Management</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage and track all IP-related cases and their progress
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          <button className="btn-outline">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Reports
-          </button>
-          <button className="btn-outline">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Analytics
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Case Management</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Manage and track all IP-related cases and their progress
+        </p>
       </div>
 
       {/* Quick Stats */}
