@@ -926,55 +926,9 @@ app.post('/api/incidents/:id/restore', async (req, res) => {
   }
 });
 
-// Get incident by ID - comes AFTER specific routes
-app.get('/api/incidents/:id', async (req, res) => {
-  console.log('🔍 Incident detail requested:', req.params.id);
-  try {
-    const { data: incident, error } = await supabase
-      .from('incidents')
-      .select(`
-        *,
-        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
-        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
-      `)
-      .eq('id', req.params.id)
-      .single();
-
-    if (error) {
-      console.error('❌ Error fetching incident:', error);
-      return res.status(404).json({ message: 'Incident not found' });
-    }
-
-    console.log('✅ Incident found:', incident.id);
-    res.json({
-      id: incident.id,
-      title: incident.title,
-      description: incident.description,
-      incidentType: incident.incident_type,
-      status: incident.status,
-      priority: incident.priority,
-      severity: incident.severity,
-      caseNumber: incident.case_number,
-      reporter: incident.reporter,
-      assignedTo: incident.assigned_user,
-      infringedContent: incident.infringed_content,
-      infringedUrls: incident.infringed_urls,
-      infringerInfo: incident.infringer_info,
-      tags: incident.tags,
-      notes: incident.notes,
-      createdAt: incident.created_at,
-      updatedAt: incident.updated_at
-    });
-  } catch (error) {
-    console.error('❌ Incident detail error:', error);
-    res.status(500).json({ message: 'Failed to fetch incident' });
-  }
-});
-
-// Soft delete incident (admin/manager only) - Using POST since DELETE doesn't work on Vercel
+// Soft delete incident (admin/manager only) - MUST come BEFORE /:id route
 app.post('/api/incidents/:id/delete', async (req, res) => {
-  console.log('🗑️ DELETE request received for incident:', req.params.id);
-  console.log('🗑️ Request method:', req.method);
+  console.log('🗑️ Soft delete request received for incident:', req.params.id);
   console.log('🗑️ Request body:', req.body);
   try {
     const { reason, userId } = req.body;
@@ -1028,6 +982,51 @@ app.post('/api/incidents/:id/delete', async (req, res) => {
   } catch (error) {
     console.error('❌ Soft delete error:', error);
     res.status(500).json({ message: 'Failed to delete incident' });
+  }
+});
+
+// Get incident by ID - comes AFTER specific routes
+app.get('/api/incidents/:id', async (req, res) => {
+  console.log('🔍 Incident detail requested:', req.params.id);
+  try {
+    const { data: incident, error } = await supabase
+      .from('incidents')
+      .select(`
+        *,
+        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
+        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
+      `)
+      .eq('id', req.params.id)
+      .single();
+
+    if (error) {
+      console.error('❌ Error fetching incident:', error);
+      return res.status(404).json({ message: 'Incident not found' });
+    }
+
+    console.log('✅ Incident found:', incident.id);
+    res.json({
+      id: incident.id,
+      title: incident.title,
+      description: incident.description,
+      incidentType: incident.incident_type,
+      status: incident.status,
+      priority: incident.priority,
+      severity: incident.severity,
+      caseNumber: incident.case_number,
+      reporter: incident.reporter,
+      assignedTo: incident.assigned_user,
+      infringedContent: incident.infringed_content,
+      infringedUrls: incident.infringed_urls,
+      infringerInfo: incident.infringer_info,
+      tags: incident.tags,
+      notes: incident.notes,
+      createdAt: incident.created_at,
+      updatedAt: incident.updated_at
+    });
+  } catch (error) {
+    console.error('❌ Incident detail error:', error);
+    res.status(500).json({ message: 'Failed to fetch incident' });
   }
 });
 
