@@ -61,11 +61,22 @@ app.get('/api/test-search', async (req, res) => {
     
     const searchPattern = `%${search}%`;
     
+    // Try multiple approaches
     const { data, error } = await supabase
       .from('incidents')
       .select('id, title, description, case_number')
-      .or(`title.ilike.${searchPattern},description.ilike.${searchPattern},case_number.ilike.${searchPattern}`)
+      .or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`)
       .limit(5);
+    
+    // Also test with .ilike() method directly
+    const { data: data2, error: error2 } = await supabase
+      .from('incidents')
+      .select('id, title, description, case_number')
+      .ilike('title', searchPattern)
+      .limit(5);
+    
+    console.log(`Test 1 (or): ${data?.length || 0} results`);
+    console.log(`Test 2 (ilike): ${data2?.length || 0} results`);
     
     if (error) {
       console.error('❌ Test search error:', error);
@@ -73,7 +84,12 @@ app.get('/api/test-search', async (req, res) => {
     }
     
     console.log(`✅ Test search found ${data?.length || 0} results`);
-    res.json({ search, searchPattern, results: data, count: data?.length || 0 });
+    res.json({ 
+      search, 
+      searchPattern, 
+      test1_or: { results: data, count: data?.length || 0 },
+      test2_ilike: { results: data2, count: data2?.length || 0 }
+    });
   } catch (error) {
     console.error('❌ Test search exception:', error);
     res.status(500).json({ error: error.message });
@@ -558,16 +574,12 @@ app.get('/api/cases', async (req, res) => {
       // Apply filters
       if (search) {
         console.log('🔎 Applying search filter:', search);
-        // Supabase JS client method for case-insensitive search
+        // Supabase requires escaping special characters and proper formatting
         const searchPattern = `%${search}%`;
         console.log('🔍 Search pattern:', searchPattern);
-        // Use the .or() method with proper filter syntax
-        query = query.or(
-          `title.ilike.${searchPattern},` +
-          `description.ilike.${searchPattern},` +
-          `case_number.ilike.${searchPattern}`
-        );
-        console.log('✅ Search filter applied');
+        // Use .or() with PostgREST syntax - the pattern must be inside quotes
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`);
+        console.log('✅ Search filter applied to title, description, case_number');
       }
       if (status) {
         query = query.eq('status', status);
