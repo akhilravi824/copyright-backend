@@ -14,10 +14,13 @@ const DeleteIncidentButton = ({ incident, onSuccess, variant = 'button' }) => {
   const [reason, setReason] = useState('');
 
   const deleteMutation = useMutation(
-    () => api.post(`/api/incidents/${incident.id}/delete`, { 
-      userId: user.id, 
-      reason: reason || undefined 
-    }),
+    () => {
+      console.log('🗑️ Deleting incident using POST:', incident.id);
+      return api.post(`/api/incidents/${incident.id}/delete`, { 
+        userId: user.id, 
+        reason: reason || undefined 
+      });
+    },
     {
       onSuccess: () => {
         toast.success('Incident deleted successfully');
