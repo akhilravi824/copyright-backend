@@ -2,7 +2,6 @@ import React from 'react';
 import { useQuery } from 'react-query';
 import api from '../api/api';
 import { Link, useLocation } from 'react-router-dom';
-import SearchSuggestions from '../components/SearchSuggestions';
 import {
   FileText,
   Clock,
@@ -33,6 +32,22 @@ const Cases = () => {
     sort: urlParams.get('sort') || 'date_desc',
     page: parseInt(urlParams.get('page')) || 1
   });
+
+  // Sync filters with URL parameters when location changes
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setFilters({
+      status: params.get('status') || '',
+      incidentType: params.get('incidentType') || '',
+      severity: params.get('severity') || '',
+      priority: params.get('priority') || '',
+      assignedTo: params.get('assignedTo') || '',
+      search: params.get('search') || '',
+      view: params.get('view') || 'all',
+      sort: params.get('sort') || 'date_desc',
+      page: parseInt(params.get('page')) || 1
+    });
+  }, [location.search]);
 
   const { data, isLoading, error } = useQuery(
     ['cases', filters],
