@@ -98,7 +98,7 @@ app.get('/api/test-search', async (req, res) => {
 
 // Auth endpoints
 app.post('/api/auth/login', async (req, res) => {
-  console.log('🔐 Login attempt:', req.body);
+  console.log('🔐 Login attempt (NEW CODE v2):', req.body);
   const { email, password } = req.body;
   
   try {
