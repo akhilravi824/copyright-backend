@@ -115,12 +115,16 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // For now, accept admin123 password (in production, use proper password hashing)
-    if (password === 'admin123') {
+    // Check password (for demo, accept password_hash as plain text)
+    if (user.password_hash === password) {
       console.log('✅ Login successful:', email);
+      // Create a simple token that includes user email (base64 encoded)
+      const tokenPayload = JSON.stringify({ email: user.email, id: user.id });
+      const token = 'Bearer-' + Buffer.from(tokenPayload).toString('base64');
+      
       res.json({
         success: true,
-        token: 'mock-jwt-token-' + Date.now(),
+        token: token,
         user: {
           id: user.id,
           email: user.email,
@@ -147,25 +151,44 @@ app.get('/api/auth/me', async (req, res) => {
   
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      // For now, return admin user (in production, decode JWT token)
+      const token = authHeader.substring(7); // Remove 'Bearer '
+      
+      // Decode the token to get user email
+      let userEmail;
+      if (token.startsWith('Bearer-')) {
+        // Our custom token format
+        const base64Payload = token.substring(7); // Remove 'Bearer-'
+        const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+        userEmail = payload.email;
+        console.log('🔓 Decoded token for user:', userEmail);
+      } else {
+        // Old token format - fallback to admin
+        console.warn('⚠️  Old token format detected, defaulting to admin');
+        userEmail = 'admin@dsp.com';
+      }
+      
+      // Fetch the user from database
       const { data: user, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', 'admin@dsp.com')
+        .eq('email', userEmail)
+        .eq('is_active', true)
         .single();
 
-      if (user) {
-        res.json({
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          role: user.role,
-          department: user.department
-        });
-      } else {
-        res.status(401).json({ message: 'User not found' });
+      if (error || !user) {
+        console.error('❌ User not found:', userEmail);
+        return res.status(401).json({ message: 'User not found' });
       }
+
+      console.log('✅ Auth check successful for:', user.email, 'Role:', user.role);
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        department: user.department
+      });
     } catch (error) {
       console.error('❌ Auth check error:', error);
       res.status(401).json({ message: 'Invalid token' });
@@ -827,7 +850,8 @@ app.get('/api/incidents', async (req, res) => {
     // Filter by reporter_id for analyst role
     if (reporter_id) {
       console.log('🔒 Filtering by reporter_id:', reporter_id);
-      query = query.eq('reporter_id', reporter_id).not('reporter_id', 'is', null);
+      // Only show incidents where reporter_id matches AND is not null
+      query = query.eq('reporter_id', reporter_id);
     }
     
     query = query.order('created_at', { ascending: false });
