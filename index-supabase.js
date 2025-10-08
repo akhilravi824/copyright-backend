@@ -515,47 +515,54 @@ app.get('/api/cases', async (req, res) => {
   try {
     const { search, status, incidentType, severity, priority, assignedTo, view, sort, page = 1, limit = 10 } = req.query;
 
-    let query = supabase
-      .from('incidents')
-      .select(`
-        *,
-        reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
-        assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
-      `, { count: 'exact' })
-      .is('deleted_at', null); // Exclude soft deleted cases
+    // Helper function to build query with filters
+    const buildQuery = () => {
+      let query = supabase
+        .from('incidents')
+        .select(`
+          *,
+          reporter:users!incidents_reporter_id_fkey(first_name, last_name, email),
+          assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)
+        `, { count: 'exact' })
+        .is('deleted_at', null); // Exclude soft deleted cases
 
-    // Apply filters
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`);
-    }
-    if (status) {
-      query = query.eq('status', status);
-    }
-    if (incidentType) {
-      query = query.eq('incident_type', incidentType);
-    }
-    if (severity) {
-      query = query.eq('severity', severity);
-    }
-    if (priority) {
-      query = query.eq('priority', priority);
-    }
-    if (assignedTo) {
-      query = query.eq('assigned_to', assignedTo);
-    }
+      // Apply filters
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,case_number.ilike.%${search}%`);
+      }
+      if (status) {
+        query = query.eq('status', status);
+      }
+      if (incidentType) {
+        query = query.eq('incident_type', incidentType);
+      }
+      if (severity) {
+        query = query.eq('severity', severity);
+      }
+      if (priority) {
+        query = query.eq('priority', priority);
+      }
+      if (assignedTo) {
+        query = query.eq('assigned_to', assignedTo);
+      }
 
-    // Apply sorting
-    if (sort === 'date_asc') {
-      query = query.order('created_at', { ascending: true });
-    } else {
-      query = query.order('created_at', { ascending: false });
-    }
+      // Apply sorting
+      if (sort === 'date_asc') {
+        query = query.order('created_at', { ascending: true });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      return query;
+    };
 
     // Get all cases for stats (before pagination)
-    const { data: allCases, error: allError } = await query;
+    const allCasesQuery = buildQuery();
+    const { data: allCases, error: allError } = await allCasesQuery;
     
     if (allError) {
       console.error('❌ Error fetching all cases for stats:', allError);
+      return res.status(500).json({ message: 'Failed to fetch cases for stats', error: allError.message });
     }
 
     // Calculate stats from all filtered cases
@@ -566,21 +573,22 @@ app.get('/api/cases', async (req, res) => {
       critical: allCases?.filter(c => c.severity === 'critical').length || 0
     };
 
-    // Apply pagination
-    const from = (page - 1) * limit;
+    // Build query again for pagination
+    const paginatedQuery = buildQuery();
+    const from = (parseInt(page) - 1) * parseInt(limit);
     const to = from + parseInt(limit) - 1;
-    query = query.range(from, to);
+    paginatedQuery.range(from, to);
 
-    const { data: cases, error, count } = await query;
+    const { data: cases, error, count } = await paginatedQuery;
 
     if (error) {
-      console.error('❌ Error fetching cases:', error);
-      return res.status(500).json({ message: 'Failed to fetch cases' });
+      console.error('❌ Error fetching paginated cases:', error);
+      return res.status(500).json({ message: 'Failed to fetch cases', error: error.message });
     }
 
-    console.log(`✅ Found ${cases.length} cases (page ${page})`);
+    console.log(`✅ Found ${cases?.length || 0} cases (page ${page} of ${Math.ceil(stats.total / limit)})`);
     res.json({
-      cases: cases.map(incident => ({
+      cases: (cases || []).map(incident => ({
         id: incident.id,
         title: incident.title,
         description: incident.description,
@@ -596,14 +604,14 @@ app.get('/api/cases', async (req, res) => {
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: count || stats.total,
-        pages: Math.ceil((count || stats.total) / limit)
+        total: stats.total,
+        pages: Math.ceil(stats.total / limit)
       },
       stats: stats
     });
   } catch (error) {
     console.error('❌ Cases endpoint error:', error);
-    res.status(500).json({ message: 'Failed to fetch cases' });
+    res.status(500).json({ message: 'Failed to fetch cases', error: error.message });
   }
 });
 
