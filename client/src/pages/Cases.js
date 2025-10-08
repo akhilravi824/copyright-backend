@@ -35,7 +35,13 @@ const Cases = () => {
 
   const { data, isLoading, error } = useQuery(
     ['cases', filters],
-    () => api.get('/api/cases', { params: filters }).then(res => res.data),
+    () => {
+      console.log('🌐 Fetching cases with filters:', filters);
+      return api.get('/api/cases', { params: filters }).then(res => {
+        console.log('✅ Cases data received:', res.data);
+        return res.data;
+      });
+    },
     {
       keepPreviousData: true,
     }
@@ -50,6 +56,7 @@ const Cases = () => {
   };
 
   const handleSearch = (searchTerm) => {
+    console.log('🔍 Search triggered:', searchTerm);
     setFilters(prev => ({
       ...prev,
       search: searchTerm,
