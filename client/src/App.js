@@ -16,6 +16,7 @@ import Monitoring from './pages/Monitoring';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
 import Profile from './pages/Profile';
+import DeletedIncidents from './pages/DeletedIncidents';
 import LoadingSpinner from './components/LoadingSpinner';
 
 function App() {
@@ -55,6 +56,7 @@ function App() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/users" element={<Users />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/deleted-incidents" element={<DeletedIncidents />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>

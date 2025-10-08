@@ -16,7 +16,8 @@ import {
   User,
   LogOut,
   Bell,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 
 const Layout = ({ children }) => {
@@ -38,6 +39,11 @@ const Layout = ({ children }) => {
   // Add admin-only navigation items
   if (user?.role === 'admin') {
     navigation.push({ name: 'Users', href: '/users', icon: Users });
+  }
+
+  // Add deleted incidents for admin and manager
+  if (user?.role === 'admin' || user?.role === 'manager') {
+    navigation.push({ name: 'Deleted Incidents', href: '/deleted-incidents', icon: Trash2 });
   }
 
   const isActive = (href) => {
