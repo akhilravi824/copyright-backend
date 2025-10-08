@@ -512,8 +512,10 @@ app.delete('/api/users/:id', async (req, res) => {
 // Cases endpoints
 app.get('/api/cases', async (req, res) => {
   console.log('📋 Cases list requested');
+  console.log('🔍 Query params:', req.query);
   try {
     const { search, status, incidentType, severity, priority, assignedTo, view, sort, page = 1, limit = 10 } = req.query;
+    console.log('🔎 Search term:', search);
 
     // Helper function to build query with filters
     const buildQuery = () => {
@@ -572,6 +574,7 @@ app.get('/api/cases', async (req, res) => {
       resolved: allCases?.filter(c => ['resolved', 'closed'].includes(c.status)).length || 0,
       critical: allCases?.filter(c => c.severity === 'critical').length || 0
     };
+    console.log('📊 Calculated stats:', stats);
 
     // Build query again for pagination
     const paginatedQuery = buildQuery();
