@@ -53,18 +53,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// TEST DELETE endpoint - placed early to test if DELETE works at all
-app.delete('/api/test-delete', (req, res) => {
-  console.log('🔥 TEST DELETE ENDPOINT HIT!');
-  res.json({ message: 'DELETE is working!', method: req.method });
-});
-
-// TEST DELETE with parameter
-app.delete('/api/test-delete/:id', (req, res) => {
-  console.log('🔥 TEST DELETE WITH ID HIT!', req.params.id);
-  res.json({ message: 'DELETE with ID is working!', id: req.params.id });
-});
-
 // Auth endpoints
 app.post('/api/auth/login', async (req, res) => {
   console.log('🔐 Login attempt:', req.body);
@@ -983,12 +971,11 @@ app.get('/api/incidents/:id', async (req, res) => {
   }
 });
 
-// Soft delete incident (admin/manager only) - DELETE comes after GET
-app.delete('/api/incidents/:id', async (req, res) => {
+// Soft delete incident (admin/manager only) - Using POST since DELETE doesn't work on Vercel
+app.post('/api/incidents/:id/delete', async (req, res) => {
   console.log('🗑️ DELETE request received for incident:', req.params.id);
   console.log('🗑️ Request method:', req.method);
   console.log('🗑️ Request body:', req.body);
-  console.log('🗑️ Request headers:', req.headers);
   try {
     const { reason, userId } = req.body;
     
@@ -1042,13 +1029,6 @@ app.delete('/api/incidents/:id', async (req, res) => {
     console.error('❌ Soft delete error:', error);
     res.status(500).json({ message: 'Failed to delete incident' });
   }
-});
-
-// Test DELETE handler - to debug
-app.delete('*', (req, res) => {
-  console.log('🔥 WILDCARD DELETE CAUGHT:', req.originalUrl);
-  console.log('🔥 Method:', req.method);
-  res.status(200).json({ message: 'DELETE wildcard caught', path: req.originalUrl });
 });
 
 // Error handling middleware
