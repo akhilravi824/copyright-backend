@@ -827,7 +827,7 @@ app.get('/api/incidents', async (req, res) => {
     // Filter by reporter_id for analyst role
     if (reporter_id) {
       console.log('🔒 Filtering by reporter_id:', reporter_id);
-      query = query.eq('reporter_id', reporter_id);
+      query = query.eq('reporter_id', reporter_id).not('reporter_id', 'is', null);
     }
     
     query = query.order('created_at', { ascending: false });
