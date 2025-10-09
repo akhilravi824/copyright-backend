@@ -1357,11 +1357,14 @@ app.post('/api/invitations', async (req, res) => {
       return res.status(500).json({ message: 'Failed to create invitation' });
     }
     
-    // Send invitation email using Supabase Auth
+    // Always provide manual invitation link (Supabase Auth has limitations)
+    const invitationLink = `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/invite/${invitationToken}`;
+    console.log('📧 Manual invitation link generated:', invitationLink);
+
+    // Try to send via Supabase Auth (optional, may fail for existing emails)
     try {
-      console.log('📧 Sending invitation email via Supabase Auth...');
+      console.log('📧 Attempting to send invitation email via Supabase Auth...');
       
-      // Use Supabase Auth to send invitation email
       const { data: authInvite, error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
         data: {
           role: role,
@@ -1370,46 +1373,40 @@ app.post('/api/invitations', async (req, res) => {
           invitation_token: invitationToken,
           custom_message: custom_message
         },
-        redirectTo: `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/invite/${invitationToken}`
+        redirectTo: invitationLink
       });
 
       if (authError) {
-        console.error('❌ Supabase Auth invitation failed:', authError);
-        throw authError;
+        console.log('⚠️ Supabase Auth email failed (this is normal for existing emails):', authError.message);
+        // Don't throw error, just log it - we have the manual link
+      } else {
+        console.log('✅ Supabase Auth invitation sent:', authInvite);
+        
+        // Update invitation with Supabase Auth details
+        await supabase
+          .from('user_invitations')
+          .update({ 
+            supabase_user_id: authInvite.user?.id,
+            supabase_invite_id: authInvite.user?.id,
+            email_sent_at: new Date().toISOString(),
+            email_delivery_status: 'sent'
+          })
+          .eq('id', invitation.id);
       }
 
-      console.log('✅ Supabase Auth invitation sent:', authInvite);
-      
-      // Update invitation with Supabase Auth details
-      await supabase
-        .from('user_invitations')
-        .update({ 
-          supabase_user_id: authInvite.user?.id,
-          supabase_invite_id: authInvite.user?.id,
-          email_sent_at: new Date().toISOString(),
-          email_delivery_status: 'sent'
-        })
-        .eq('id', invitation.id);
-
     } catch (emailError) {
-      console.error('❌ Failed to send invitation email:', emailError);
-      
-      // Fallback: Provide manual link
-      const invitationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
-      console.log('📧 Fallback: Manual invitation link:', invitationLink);
-      
-      await supabase
-        .from('user_invitations')
-        .update({ 
-          email_delivery_status: 'failed',
-          email_error_message: emailError.message,
-          custom_message: `Email failed. Manual link: ${invitationLink}`
-        })
-        .eq('id', invitation.id);
+      console.log('⚠️ Email sending failed (using manual link):', emailError.message);
+      // Don't fail the entire process - we have the manual link
     }
-    
-    // Generate invitation link for response
-    const invitationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+
+    // Always update with manual link info
+    await supabase
+      .from('user_invitations')
+      .update({ 
+        email_delivery_status: 'manual_link_provided',
+        custom_message: custom_message || `Invitation link: ${invitationLink}`
+      })
+      .eq('id', invitation.id);
     
     res.json({
       success: true,
