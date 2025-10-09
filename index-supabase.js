@@ -1346,6 +1346,99 @@ app.post('/api/incidents/:id/restore', async (req, res) => {
 });
 
 // Soft delete incident (admin/manager only) - MUST come BEFORE /:id route
+// Update incident
+app.put('/api/incidents/:id', async (req, res) => {
+  console.log('✏️ Updating incident:', req.params.id);
+  console.log('✏️ Update data:', req.body);
+  try {
+    const incidentId = req.params.id;
+    const updateData = req.body;
+    
+    // Get current user info from authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization required' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let userEmail, userId;
+    
+    try {
+      // Decode the token to get user info
+      const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+      userEmail = decoded.email;
+      userId = decoded.id;
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    // Get current incident to check permissions
+    const { data: incident, error: incidentError } = await supabase
+      .from('incidents')
+      .select('reporter_id, status')
+      .eq('id', incidentId)
+      .single();
+    
+    if (incidentError || !incident) {
+      return res.status(404).json({ message: 'Incident not found' });
+    }
+    
+    // Check if user can edit this incident
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('email', userEmail)
+      .single();
+    
+    if (userError || !user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
+    // Analysts can only edit incidents they created
+    if (user.role === 'analyst' && incident.reporter_id !== userId) {
+      return res.status(403).json({ message: 'You can only edit incidents you created' });
+    }
+    
+    // Prepare update data
+    const updateFields = {
+      title: updateData.title,
+      description: updateData.description,
+      incident_type: updateData.incidentType,
+      severity: updateData.severity,
+      priority: updateData.priority,
+      infringed_content: updateData.infringedContent,
+      infringed_urls: updateData.infringedUrls || [],
+      infringer_info: updateData.infringerInfo || {},
+      evidence_files: updateData.evidenceFiles || [],
+      updated_at: new Date().toISOString()
+    };
+    
+    // Update incident
+    const { data: updatedIncident, error: updateError } = await supabase
+      .from('incidents')
+      .update(updateFields)
+      .eq('id', incidentId)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('❌ Error updating incident:', updateError);
+      return res.status(500).json({ message: 'Failed to update incident' });
+    }
+    
+    console.log('✅ Incident updated successfully');
+    res.json({ 
+      success: true, 
+      incident: updatedIncident,
+      message: 'Incident updated successfully' 
+    });
+    
+  } catch (error) {
+    console.error('❌ Update incident error:', error);
+    res.status(500).json({ message: 'Failed to update incident' });
+  }
+});
+
 // Add note to incident
 app.post('/api/incidents/:id/notes', async (req, res) => {
   console.log('📝 Adding note to incident:', req.params.id);
