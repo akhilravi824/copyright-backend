@@ -1310,7 +1310,7 @@ app.get('/api/incidents/:id', async (req, res) => {
 app.post('/api/invitations', async (req, res) => {
   console.log('📧 Creating invitation:', req.body);
   try {
-    const { email, role = 'staff', department, job_title, custom_message } = req.body;
+    const { email, role = 'staff', department = 'legal', job_title, custom_message } = req.body;
     
     // Validate required fields
     if (!email) {
