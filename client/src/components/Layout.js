@@ -13,6 +13,7 @@ import {
   Search,
   BarChart3,
   Users,
+  UserPlus,
   User,
   LogOut,
   Bell,
@@ -49,7 +50,10 @@ const Layout = ({ children }) => {
     
     // Add admin-only navigation items
     if (user?.role === 'admin') {
-      navigation.push({ name: 'Users', href: '/users', icon: Users });
+      navigation.push(
+        { name: 'Users', href: '/users', icon: Users },
+        { name: 'Invitations', href: '/invitations', icon: UserPlus }
+      );
     }
 
     // Add deleted incidents for admin and manager

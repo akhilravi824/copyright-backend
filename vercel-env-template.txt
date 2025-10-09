@@ -29,3 +29,4 @@ NODE_ENV=production
 
 # Port (Vercel will set this automatically)
 PORT=3000
+

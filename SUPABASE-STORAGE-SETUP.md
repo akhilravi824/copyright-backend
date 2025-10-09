@@ -168,3 +168,4 @@ Once you've completed the setup:
 - [Supabase Storage Policies](https://supabase.com/docs/guides/storage/security/access-control)
 - [Supabase Storage Limits](https://supabase.com/docs/guides/storage/uploads/file-limits)
 
+

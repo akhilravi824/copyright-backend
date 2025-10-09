@@ -42,3 +42,4 @@ echo "- JWT_SECRET=your-super-secret-jwt-key-change-this-in-production"
 echo "- JWT_EXPIRES_IN=7d"
 echo "- CLIENT_URL=https://your-app-name.vercel.app"
 echo "- NODE_ENV=production"
+

@@ -124,3 +124,4 @@ If you encounter issues:
 ---
 
 **Note**: Remember to update the `CLIENT_URL` environment variable with your actual Vercel URL after deployment!
+

@@ -235,3 +235,4 @@ You now have a fully functional Analyst role that restricts users to:
 
 All code has been deployed to GitHub and Vercel. Just run the SQL migration in Supabase and you're ready to test!
 
+

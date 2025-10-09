@@ -27,3 +27,4 @@ COMMENT ON COLUMN incidents.deleted_at IS 'Timestamp when the incident was soft 
 COMMENT ON COLUMN incidents.deleted_by IS 'User ID who performed the soft delete operation.';
 COMMENT ON COLUMN incidents.deleted_reason IS 'Optional reason for deleting the incident.';
 
+
