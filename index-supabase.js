@@ -1346,6 +1346,100 @@ app.post('/api/incidents/:id/restore', async (req, res) => {
 });
 
 // Soft delete incident (admin/manager only) - MUST come BEFORE /:id route
+// Add note to incident
+app.post('/api/incidents/:id/notes', async (req, res) => {
+  console.log('📝 Adding note to incident:', req.params.id);
+  console.log('📝 Note content:', req.body.content);
+  try {
+    const { content } = req.body;
+    const incidentId = req.params.id;
+    
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Note content is required' });
+    }
+    
+    // Get current user info from authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization required' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let userEmail, userId;
+    
+    try {
+      // Decode the token to get user info
+      const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+      userEmail = decoded.email;
+      userId = decoded.id;
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email')
+      .eq('email', userEmail)
+      .single();
+    
+    if (userError || !user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+    
+    // Get current incident to update notes
+    const { data: incident, error: incidentError } = await supabase
+      .from('incidents')
+      .select('notes')
+      .eq('id', incidentId)
+      .single();
+    
+    if (incidentError || !incident) {
+      return res.status(404).json({ message: 'Incident not found' });
+    }
+    
+    // Create new note
+    const newNote = {
+      id: Date.now().toString(),
+      content: content.trim(),
+      author: {
+        id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email
+      },
+      createdAt: new Date().toISOString()
+    };
+    
+    // Add note to existing notes array
+    const existingNotes = incident.notes || [];
+    const updatedNotes = [...existingNotes, newNote];
+    
+    // Update incident with new notes
+    const { data: updatedIncident, error: updateError } = await supabase
+      .from('incidents')
+      .update({ notes: updatedNotes })
+      .eq('id', incidentId)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('❌ Error updating incident notes:', updateError);
+      return res.status(500).json({ message: 'Failed to add note' });
+    }
+    
+    console.log('✅ Note added successfully');
+    res.json({ 
+      success: true, 
+      note: newNote,
+      message: 'Note added successfully' 
+    });
+    
+  } catch (error) {
+    console.error('❌ Add note error:', error);
+    res.status(500).json({ message: 'Failed to add note' });
+  }
+});
+
 app.post('/api/incidents/:id/delete', async (req, res) => {
   console.log('🗑️ Soft delete request received for incident:', req.params.id);
   console.log('🗑️ Request body:', req.body);
