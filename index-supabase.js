@@ -1366,43 +1366,22 @@ app.post('/api/invitations', async (req, res) => {
       return res.status(500).json({ message: 'Failed to create invitation' });
     }
     
-    // Send email invitation
+    // Generate invitation link
     const invitationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
     console.log('📧 Invitation created:', invitationLink);
     
-    try {
-      const userData = {
-        firstName: 'User', // We don't have first/last name yet
-        lastName: '',
-        email: invitation.email,
-        role: invitation.role,
-        department: invitation.department,
-        jobTitle: invitation.job_title
-      };
-      
-      await emailService.sendInvitationEmail(userData, invitationToken);
-      console.log('📧 Invitation email sent to:', invitation.email);
-      
-      // Update email delivery status
-      await supabase
-        .from('user_invitations')
-        .update({ 
-          email_sent_at: new Date().toISOString(),
-          email_delivery_status: 'sent'
-        })
-        .eq('id', invitation.id);
-        
-    } catch (emailError) {
-      console.error('❌ Failed to send invitation email:', emailError);
-      // Update email delivery status
-      await supabase
-        .from('user_invitations')
-        .update({ 
-          email_delivery_status: 'failed',
-          email_error_message: emailError.message
-        })
-        .eq('id', invitation.id);
-    }
+    // For now, we'll just log the invitation link
+    // In production, you can integrate with Supabase Auth or email service
+    console.log('📧 Invitation link for manual sharing:', invitationLink);
+    
+    // Update email delivery status as "pending" (manual sharing)
+    await supabase
+      .from('user_invitations')
+      .update({ 
+        email_delivery_status: 'pending',
+        custom_message: custom_message || 'Invitation created - share link manually'
+      })
+      .eq('id', invitation.id);
     
     res.json({
       success: true,
@@ -1413,7 +1392,8 @@ app.post('/api/invitations', async (req, res) => {
         department: invitation.department,
         job_title: invitation.job_title,
         expires_at: invitation.expires_at,
-        invitation_link: invitationLink
+        invitation_link: invitationLink,
+        message: "Invitation created successfully! Copy the invitation link to share with the user."
       }
     });
   } catch (error) {
