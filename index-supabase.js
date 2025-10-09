@@ -1417,6 +1417,9 @@ app.post('/api/invitations', async (req, res) => {
         .eq('id', invitation.id);
     }
     
+    // Generate invitation link for response
+    const invitationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+    
     res.json({
       success: true,
       invitation: {
