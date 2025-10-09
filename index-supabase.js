@@ -43,8 +43,8 @@ app.use((req, res, next) => {
 
 // Simple test endpoint
 app.get('/test', (req, res) => {
-  console.log('✅ Test endpoint called - Version 2.1');
-  res.json({ message: 'Backend is working!', timestamp: new Date().toISOString(), version: '2.1' });
+  console.log('✅ Test endpoint called - Version 2.2');
+  res.json({ message: 'Backend is working!', timestamp: new Date().toISOString(), version: '2.2' });
 });
 
 // Health check endpoint
