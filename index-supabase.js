@@ -1379,7 +1379,7 @@ app.post('/api/invitations', async (req, res) => {
           invitation_token: invitationToken,
           custom_message: custom_message
         },
-        redirectTo: `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`
+        redirectTo: `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/invite/${invitationToken}`
       });
 
       if (authError) {
