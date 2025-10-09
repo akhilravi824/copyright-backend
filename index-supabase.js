@@ -54,6 +54,36 @@ app.get('/test', (req, res) => {
   });
 });
 
+// Handle favicon requests
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
+// Debug endpoint to check user
+app.get('/api/debug/user/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log('🔍 Debug: Checking user:', email);
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+    
+    if (error) {
+      console.log('❌ User not found:', error.message);
+      return res.json({ exists: false, error: error.message });
+    }
+    
+    console.log('✅ User found:', user);
+    res.json({ exists: true, user: { ...user, password_hash: '***hidden***' } });
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   console.log('✅ Health check endpoint called');
