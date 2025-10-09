@@ -52,3 +52,4 @@ SELECT id, first_name, last_name, email, role, department, is_active
 FROM users
 WHERE email = 'analyst@dsp.com';
 
+

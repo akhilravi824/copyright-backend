@@ -23,3 +23,4 @@ try {
   console.error('❌ Error reading migration SQL file:', error);
 }
 
+

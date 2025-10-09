@@ -31,3 +31,4 @@ Required environment variables:
 ## 🔗 Frontend Integration
 
 The frontend should be configured to make API calls to this backend URL.
+

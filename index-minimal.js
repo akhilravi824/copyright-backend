@@ -34,3 +34,4 @@ app.use('*', (req, res) => {
 console.log('Minimal backend initialized');
 
 module.exports = app;
+
