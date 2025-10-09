@@ -152,6 +152,30 @@ app.get('/api/debug/invitations', async (req, res) => {
   }
 });
 
+// Debug endpoint to check incidents
+app.get('/api/debug/incidents', async (req, res) => {
+  try {
+    console.log('🔍 Debug: Checking all incidents');
+    
+    const { data: incidents, error } = await supabase
+      .from('incidents')
+      .select('id, title, reporter_id, created_at, status')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (error) {
+      console.log('❌ Error fetching incidents:', error.message);
+      return res.json({ error: error.message });
+    }
+    
+    console.log('✅ Incidents found:', incidents.length);
+    res.json({ incidents });
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   console.log('✅ Health check endpoint called');
