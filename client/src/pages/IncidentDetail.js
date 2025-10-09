@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../api/api';
 import toast from 'react-hot-toast';
 import DeleteIncidentButton from '../components/DeleteIncidentButton';
+import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft,
   Calendar,
@@ -27,6 +28,10 @@ const IncidentDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  
+  // Check if user is analyst (restricted role)
+  const isAnalyst = user?.role === 'analyst';
 
   const { data: incident, isLoading } = useQuery(
     ['incident', id],
@@ -152,18 +157,26 @@ const IncidentDetail = () => {
           </div>
         </div>
         <div className="flex space-x-2">
-          <button className="btn-outline">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </button>
-          <button className="btn-outline">
-            <Send className="h-4 w-4 mr-2" />
-            Generate Document
-          </button>
-          <DeleteIncidentButton 
-            incident={incident} 
-            onSuccess={() => navigate('/incidents')} 
-          />
+          {!isAnalyst ? (
+            <>
+              <button className="btn-outline">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </button>
+              <button className="btn-outline">
+                <Send className="h-4 w-4 mr-2" />
+                Generate Document
+              </button>
+              <DeleteIncidentButton 
+                incident={incident} 
+                onSuccess={() => navigate('/incidents')} 
+              />
+            </>
+          ) : (
+            <div className="text-sm text-gray-500 italic">
+              Editing and document generation restricted to managers and admins
+            </div>
+          )}
         </div>
       </div>
 
@@ -306,35 +319,47 @@ const IncidentDetail = () => {
                 <div className="mb-3">
                   {getStatusBadge(incident.status)}
                 </div>
-                <select
-                  value={incident.status}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  className="form-select"
-                  disabled={updateStatusMutation.isLoading}
-                >
-                  <option value="reported">Reported</option>
-                  <option value="under_review">Under Review</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
-                  <option value="escalated">Escalated</option>
-                </select>
+                {!isAnalyst ? (
+                  <select
+                    value={incident.status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className="form-select"
+                    disabled={updateStatusMutation.isLoading}
+                  >
+                    <option value="reported">Reported</option>
+                    <option value="under_review">Under Review</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                    <option value="escalated">Escalated</option>
+                  </select>
+                ) : (
+                  <div className="text-sm text-gray-500 italic">
+                    Status can only be changed by managers and admins
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <button className="btn-primary w-full">
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Cease & Desist
-                </button>
-                <button className="btn-outline w-full">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Generate DMCA Notice
-                </button>
-                <button className="btn-outline w-full">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Report Abuse
-                </button>
-              </div>
+              {!isAnalyst ? (
+                <div className="space-y-2">
+                  <button className="btn-primary w-full">
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Cease & Desist
+                  </button>
+                  <button className="btn-outline w-full">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate DMCA Notice
+                  </button>
+                  <button className="btn-outline w-full">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Report Abuse
+                  </button>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  Legal actions can only be performed by managers and admins
+                </div>
+              )}
             </div>
           </div>
 
