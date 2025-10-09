@@ -176,6 +176,31 @@ app.get('/api/debug/incidents', async (req, res) => {
   }
 });
 
+// Debug endpoint to fix incident reporter IDs
+app.post('/api/debug/fix-incident-reporters', async (req, res) => {
+  try {
+    console.log('🔧 Debug: Fixing incident reporter IDs');
+    
+    // Update all incidents to use the current analyst user ID
+    const { data: updatedIncidents, error } = await supabase
+      .from('incidents')
+      .update({ reporter_id: 'e4a3294d-e75b-4861-843d-eccf803edb7d' })
+      .neq('reporter_id', 'e4a3294d-e75b-4861-843d-eccf803edb7d')
+      .select('id, title, reporter_id');
+    
+    if (error) {
+      console.log('❌ Error updating incidents:', error.message);
+      return res.json({ error: error.message });
+    }
+    
+    console.log('✅ Incidents updated:', updatedIncidents.length);
+    res.json({ updated: updatedIncidents.length, incidents: updatedIncidents });
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   console.log('✅ Health check endpoint called');
