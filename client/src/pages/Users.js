@@ -477,17 +477,19 @@ const UsersPage = () => {
                         <div className="flex items-center space-x-2">
                           <div className="bg-white border rounded p-2 max-w-xs">
                             <code className="text-xs text-gray-600 break-all">
-                              {invitation.custom_message?.includes('https://') 
-                                ? invitation.custom_message.match(/https:\/\/[^\s]+/)?.[0] || 'No link found'
-                                : 'No link found'
+                              {invitation.invitation_link || 
+                               (invitation.custom_message?.includes('https://') 
+                                ? invitation.custom_message.match(/https:\/\/[^\s\n]+/)?.[0] || 'No link found'
+                                : 'No link found')
                               }
                             </code>
                           </div>
                           <button
                             onClick={() => {
-                              const link = invitation.custom_message?.includes('https://') 
-                                ? invitation.custom_message.match(/https:\/\/[^\s]+/)?.[0]
-                                : null;
+                              const link = invitation.invitation_link || 
+                                          (invitation.custom_message?.includes('https://') 
+                                           ? invitation.custom_message.match(/https:\/\/[^\s\n]+/)?.[0]
+                                           : null);
                               if (link) {
                                 navigator.clipboard.writeText(link);
                                 toast.success('Link copied to clipboard!');
