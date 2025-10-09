@@ -165,9 +165,13 @@ const UsersPage = () => {
     {
       onSuccess: (response) => {
         queryClient.invalidateQueries('users');
-        const link = response.data.invitation?.invitation_link || invitationLink;
-        setInvitationLink(link);
-        toast.success(`Invitation created! Link: ${link}`);
+        const link = response.data.invitation?.invitation_link;
+        if (link) {
+          setInvitationLink(link);
+          toast.success(`Invitation created successfully!`);
+        } else {
+          toast.success('Invitation created successfully!');
+        }
         // Don't close modal, show the generated link
       },
       onError: (error) => {
@@ -764,77 +768,46 @@ const UsersPage = () => {
                   )}
                   
                   {createMethod === 'invitation' && (
-                    <>
-                      <div>
-                        <label className="form-label">Custom Message</label>
-                        <textarea 
-                          name="custom_message" 
-                          rows={3}
-                          className="form-input"
-                          placeholder="Optional welcome message for the invited user..."
-                        />
-                      </div>
-                      
-                      {/* Email Draft Section */}
-                      <div className="border-t pt-4">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3">Email Draft</h4>
-                        <div className="space-y-3">
-                          <div>
-                            <label className="form-label">Email Subject</label>
-                            <input
-                              type="text"
-                              value={emailDraft.subject}
-                              onChange={(e) => setEmailDraft(prev => ({ ...prev, subject: e.target.value }))}
-                              className="form-input"
-                            />
-                          </div>
-                          <div>
-                            <label className="form-label">Email Body</label>
-                            <textarea
-                              value={emailDraft.body}
-                              onChange={(e) => setEmailDraft(prev => ({ ...prev, body: e.target.value }))}
-                              rows={4}
-                              className="form-input"
-                              placeholder="Email content..."
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Generate Link Button */}
-                      <div className="border-t pt-4">
-                        <button
-                          type="button"
-                          onClick={generateInvitationLink}
-                          className="btn-outline mb-3"
-                        >
-                          <Key className="h-4 w-4 mr-2" />
-                          Generate Unique Invitation Link
-                        </button>
-                        
-                        {/* Display Generated Link */}
-                        {invitationLink && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <div className="flex items-center mb-2">
-                              <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
-                              <span className="text-sm font-medium text-green-800">Invitation Link Generated</span>
-                            </div>
-                            <div className="bg-white border rounded p-2 mb-2">
-                              <code className="text-xs text-gray-600 break-all">{invitationLink}</code>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => navigator.clipboard.writeText(invitationLink)}
-                              className="text-xs text-green-600 hover:text-green-800"
-                            >
-                              Copy Link
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </>
+                    <div>
+                      <label className="form-label">Custom Message (Optional)</label>
+                      <textarea 
+                        name="custom_message" 
+                        rows={3}
+                        className="form-input"
+                        placeholder="Optional welcome message for the invited user..."
+                      />
+                    </div>
                   )}
                 </div>
+                
+                {/* Display Generated Invitation Link */}
+                {invitationLink && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                      <span className="text-sm font-medium text-green-800">Invitation Link Generated</span>
+                    </div>
+                    <div className="bg-white border rounded p-3 mb-3">
+                      <code className="text-xs text-gray-600 break-all">{invitationLink}</code>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(invitationLink)}
+                        className="text-sm text-green-600 hover:text-green-800 font-medium"
+                      >
+                        📋 Copy Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.open(invitationLink, '_blank')}
+                        className="text-sm text-green-600 hover:text-green-800 font-medium"
+                      >
+                        🔗 Open Link
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
