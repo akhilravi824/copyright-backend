@@ -1353,7 +1353,7 @@ app.post('/api/invitations', async (req, res) => {
         job_title,
         invitation_token: invitationToken,
         expires_at: expiresAt,
-        invited_by: req.user?.id || '00000000-0000-0000-0000-000000000000', // Fallback for testing
+        invited_by: 'c36e79b9-35fe-4e8a-9f8f-e501e42a4016', // Lisa Thompson (Manager) - TODO: Get from auth
         custom_message,
         email_delivery_status: 'pending'
       })
@@ -1548,7 +1548,7 @@ app.post('/api/invitations/:id/cancel', async (req, res) => {
       .update({
         invitation_status: 'revoked',
         revoked_at: new Date(),
-        revoked_by: req.user?.id || '00000000-0000-0000-0000-000000000000' // Fallback for testing
+        revoked_by: 'c36e79b9-35fe-4e8a-9f8f-e501e42a4016' // Lisa Thompson (Manager) - TODO: Get from auth
       })
       .eq('id', req.params.id)
       .select()
