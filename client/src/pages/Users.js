@@ -665,6 +665,7 @@ const UsersPage = () => {
                     firstName: formData.get('firstName'),
                     lastName: formData.get('lastName'),
                     email: formData.get('email'),
+                    password: formData.get('password'),
                     role: formData.get('role'),
                     department: formData.get('department'),
                     phone: formData.get('phone'),
@@ -723,6 +724,13 @@ const UsersPage = () => {
                     <label className="form-label">Job Title</label>
                     <input name="jobTitle" className="form-input" />
                   </div>
+                  
+                  {createMethod === 'direct' && (
+                    <div>
+                      <label className="form-label">Password *</label>
+                      <input name="password" type="password" required className="form-input" placeholder="Enter password" />
+                    </div>
+                  )}
                   
                   {createMethod === 'direct' && (
                     <div>
