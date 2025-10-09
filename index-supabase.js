@@ -1696,8 +1696,7 @@ app.post('/api/invitations/:token/accept', async (req, res) => {
         job_title: invitation.job_title,
         phone,
         is_active: true,
-        email_verified: true,
-        created_by: invitation.invited_by
+        email_verified: true
       })
       .select()
       .single();
