@@ -43,8 +43,14 @@ app.use((req, res, next) => {
 
 // Simple test endpoint
 app.get('/test', (req, res) => {
-  console.log('✅ Test endpoint called - Version 2.2');
-  res.json({ message: 'Backend is working!', timestamp: new Date().toISOString(), version: '2.2' });
+  console.log('✅ Test endpoint called - Version 2.3 - INVITATION ROUTES INCLUDED');
+  res.json({ 
+    message: 'Backend is working!', 
+    timestamp: new Date().toISOString(), 
+    version: '2.3',
+    features: ['invitations', 'user-management', 'incidents', 'cases'],
+    routes: ['/api/invitations', '/api/users', '/api/incidents', '/api/cases']
+  });
 });
 
 // Health check endpoint
