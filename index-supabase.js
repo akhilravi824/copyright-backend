@@ -84,6 +84,31 @@ app.get('/api/debug/user/:email', async (req, res) => {
   }
 });
 
+// Debug endpoint to check password (for testing only)
+app.get('/api/debug/password/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    console.log('🔍 Debug: Checking password for:', email);
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('password_hash')
+      .eq('email', email)
+      .single();
+    
+    if (error) {
+      console.log('❌ User not found:', error.message);
+      return res.json({ exists: false, error: error.message });
+    }
+    
+    console.log('✅ Password found:', user.password_hash);
+    res.json({ exists: true, password_hash: user.password_hash });
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   console.log('✅ Health check endpoint called');
