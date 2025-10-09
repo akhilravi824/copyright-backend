@@ -1522,13 +1522,19 @@ app.get('/api/invitations', async (req, res) => {
       return res.status(500).json({ message: 'Failed to fetch invitations' });
     }
     
+    // Add invitation links to each invitation
+    const invitationsWithLinks = invitations.map(invitation => ({
+      ...invitation,
+      invitation_link: `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/invite/${invitation.invitation_token}`
+    }));
+    
     // Get total count
     const { count } = await supabase
       .from('user_invitations')
       .select('*', { count: 'exact', head: true });
     
     res.json({
-      invitations: invitations.map(invitation => ({
+      invitations: invitationsWithLinks.map(invitation => ({
         id: invitation.id,
         email: invitation.email,
         role: invitation.role,
@@ -1541,6 +1547,7 @@ app.get('/api/invitations', async (req, res) => {
         revoked_at: invitation.revoked_at,
         resend_count: invitation.resend_count,
         custom_message: invitation.custom_message,
+        invitation_link: invitation.invitation_link,
         invited_by: invitation.invited_by_user,
         revoked_by: invitation.revoked_by_user
       })),
