@@ -32,6 +32,12 @@ const IncidentDetail = () => {
   
   // Check if user is analyst (restricted role)
   const isAnalyst = user?.role === 'analyst';
+  
+  // Check if current user is the reporter of this incident
+  const isIncidentReporter = incident?.reporter?.email === user?.email;
+  
+  // Analysts can edit incidents they created, but not others
+  const canEditIncident = !isAnalyst || (isAnalyst && isIncidentReporter);
 
   const { data: incident, isLoading } = useQuery(
     ['incident', id],
@@ -156,22 +162,29 @@ const IncidentDetail = () => {
             </p>
           </div>
         </div>
-        {!isAnalyst && (
-          <div className="flex space-x-2">
-            <button className="btn-outline">
+        <div className="flex space-x-2">
+          {canEditIncident && (
+            <button 
+              onClick={() => navigate(`/incidents/${id}/edit`)}
+              className="btn-outline"
+            >
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </button>
-            <button className="btn-outline">
-              <Send className="h-4 w-4 mr-2" />
-              Generate Document
-            </button>
-            <DeleteIncidentButton 
-              incident={incident} 
-              onSuccess={() => navigate('/incidents')} 
-            />
-          </div>
-        )}
+          )}
+          {!isAnalyst && (
+            <>
+              <button className="btn-outline">
+                <Send className="h-4 w-4 mr-2" />
+                Generate Document
+              </button>
+              <DeleteIncidentButton 
+                incident={incident} 
+                onSuccess={() => navigate('/incidents')} 
+              />
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

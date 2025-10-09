@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Incidents from './pages/Incidents';
 import IncidentDetail from './pages/IncidentDetail';
 import CreateIncident from './pages/CreateIncident';
+import EditIncident from './pages/EditIncident';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import Documents from './pages/Documents';
@@ -51,6 +52,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/incidents" element={<Incidents />} />
         <Route path="/incidents/new" element={<CreateIncident />} />
+        <Route path="/incidents/:id/edit" element={<EditIncident />} />
         <Route path="/incidents/:id" element={<IncidentDetail />} />
         <Route path="/cases" element={<Cases />} />
         <Route path="/cases/:id" element={<CaseDetail />} />
