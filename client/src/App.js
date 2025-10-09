@@ -19,6 +19,7 @@ import InviteAcceptance from './pages/InviteAcceptance';
 import Profile from './pages/Profile';
 import DeletedIncidents from './pages/DeletedIncidents';
 import LoadingSpinner from './components/LoadingSpinner';
+import AuthCallback from './components/AuthCallback';
 
 function App() {
   const { user, loading } = useAuth();
@@ -37,6 +38,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<UserRegistration />} />
         <Route path="/invite/:token" element={<InviteAcceptance />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
