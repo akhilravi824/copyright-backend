@@ -2,9 +2,9 @@
   "name": "dsp-brand-protection-server",
   "version": "1.0.0",
   "description": "Backend API for DSP Brand Protection Platform",
-  "main": "index-supabase.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node index-supabase.js",
+    "start": "node index.js",
     "dev": "nodemon index-supabase.js",
     "test": "jest"
   },
