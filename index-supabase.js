@@ -128,6 +128,30 @@ app.get('/api/debug/password/:email', async (req, res) => {
   }
 });
 
+// Debug endpoint to check invitations
+app.get('/api/debug/invitations', async (req, res) => {
+  try {
+    console.log('🔍 Debug: Checking all invitations');
+    
+    const { data: invitations, error } = await supabase
+      .from('user_invitations')
+      .select('id, email, invitation_token, invitation_status, created_at, expires_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (error) {
+      console.log('❌ Error fetching invitations:', error.message);
+      return res.json({ error: error.message });
+    }
+    
+    console.log('✅ Invitations found:', invitations.length);
+    res.json({ invitations });
+  } catch (error) {
+    console.error('❌ Debug error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   console.log('✅ Health check endpoint called');
@@ -1659,7 +1683,10 @@ app.get('/api/invitations/token/:token', async (req, res) => {
       .eq('invitation_status', 'pending')
       .single();
     
+    console.log('🔍 Invitation query result:', { invitation, error });
+    
     if (error || !invitation) {
+      console.log('❌ Invitation not found or error:', error);
       return res.status(404).json({ message: 'Invalid or expired invitation' });
     }
     
