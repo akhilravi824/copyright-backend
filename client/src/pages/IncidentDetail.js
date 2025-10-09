@@ -156,28 +156,22 @@ const IncidentDetail = () => {
             </p>
           </div>
         </div>
-        <div className="flex space-x-2">
-          {!isAnalyst ? (
-            <>
-              <button className="btn-outline">
-                <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </button>
-              <button className="btn-outline">
-                <Send className="h-4 w-4 mr-2" />
-                Generate Document
-              </button>
-              <DeleteIncidentButton 
-                incident={incident} 
-                onSuccess={() => navigate('/incidents')} 
-              />
-            </>
-          ) : (
-            <div className="text-sm text-gray-500 italic">
-              Editing and document generation restricted to managers and admins
-            </div>
-          )}
-        </div>
+        {!isAnalyst && (
+          <div className="flex space-x-2">
+            <button className="btn-outline">
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </button>
+            <button className="btn-outline">
+              <Send className="h-4 w-4 mr-2" />
+              Generate Document
+            </button>
+            <DeleteIncidentButton 
+              incident={incident} 
+              onSuccess={() => navigate('/incidents')} 
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -319,7 +313,7 @@ const IncidentDetail = () => {
                 <div className="mb-3">
                   {getStatusBadge(incident.status)}
                 </div>
-                {!isAnalyst ? (
+                {!isAnalyst && (
                   <select
                     value={incident.status}
                     onChange={(e) => handleStatusChange(e.target.value)}
@@ -333,14 +327,10 @@ const IncidentDetail = () => {
                     <option value="closed">Closed</option>
                     <option value="escalated">Escalated</option>
                   </select>
-                ) : (
-                  <div className="text-sm text-gray-500 italic">
-                    Status can only be changed by managers and admins
-                  </div>
                 )}
               </div>
 
-              {!isAnalyst ? (
+              {!isAnalyst && (
                 <div className="space-y-2">
                   <button className="btn-primary w-full">
                     <Send className="h-4 w-4 mr-2" />
@@ -354,10 +344,6 @@ const IncidentDetail = () => {
                     <AlertTriangle className="h-4 w-4 mr-2" />
                     Report Abuse
                   </button>
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 italic">
-                  Legal actions can only be performed by managers and admins
                 </div>
               )}
             </div>
