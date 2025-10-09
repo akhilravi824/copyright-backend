@@ -3,6 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const supabase = require('./config/supabase');
+const emailService = require('./services/emailService');
 
 const app = express();
 
@@ -1365,19 +1366,43 @@ app.post('/api/invitations', async (req, res) => {
       return res.status(500).json({ message: 'Failed to create invitation' });
     }
     
-    // TODO: Send email invitation using Supabase Auth or email service
-    // For now, we'll just log the invitation link
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+    // Send email invitation
+    const invitationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
     console.log('📧 Invitation created:', invitationLink);
     
-    // Update email delivery status
-    await supabase
-      .from('user_invitations')
-      .update({ 
-        email_sent_at: new Date(),
-        email_delivery_status: 'sent' // In real implementation, this would be updated after email delivery
-      })
-      .eq('id', invitation.id);
+    try {
+      const userData = {
+        firstName: 'User', // We don't have first/last name yet
+        lastName: '',
+        email: invitation.email,
+        role: invitation.role,
+        department: invitation.department,
+        jobTitle: invitation.job_title
+      };
+      
+      await emailService.sendInvitationEmail(userData, invitationToken);
+      console.log('📧 Invitation email sent to:', invitation.email);
+      
+      // Update email delivery status
+      await supabase
+        .from('user_invitations')
+        .update({ 
+          email_sent_at: new Date().toISOString(),
+          email_delivery_status: 'sent'
+        })
+        .eq('id', invitation.id);
+        
+    } catch (emailError) {
+      console.error('❌ Failed to send invitation email:', emailError);
+      // Update email delivery status
+      await supabase
+        .from('user_invitations')
+        .update({ 
+          email_delivery_status: 'failed',
+          email_error_message: emailError.message
+        })
+        .eq('id', invitation.id);
+    }
     
     res.json({
       success: true,
