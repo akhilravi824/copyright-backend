@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Clock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  UserPlus,
+  XCircle
 } from 'lucide-react';
 
 const UsersPage = () => {
@@ -39,6 +41,7 @@ const UsersPage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showUserDetails, setShowUserDetails] = useState(false);
+  const [createMethod, setCreateMethod] = useState('direct'); // 'direct' or 'invitation'
 
   // Fetch users with filters
   const { data: usersData, isLoading, error } = useQuery(
@@ -143,6 +146,22 @@ const UsersPage = () => {
     }
   );
 
+  // Create invitation mutation
+  const createInvitationMutation = useMutation(
+    (invitationData) => api.post('/api/invitations', invitationData),
+    {
+      onSuccess: (response) => {
+        queryClient.invalidateQueries('users');
+        toast.success(`Invitation sent to ${response.data.invitation.email}`);
+        setShowCreateModal(false);
+        setCreateMethod('direct');
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || 'Failed to send invitation');
+      }
+    }
+  );
+
   const handleEditUser = (user) => {
     setSelectedUser(user);
     setShowEditModal(true);
@@ -163,6 +182,7 @@ const UsersPage = () => {
       deactivateUserMutation.mutate(user.id);
     }
   };
+
 
   const getRoleBadge = (role) => {
     const roleConfig = {
@@ -591,35 +611,82 @@ const UsersPage = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Invite New User</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New User</h3>
+              
+              {/* Method Selection Tabs */}
+              <div className="flex mb-4 border-b">
+                <button
+                  type="button"
+                  onClick={() => setCreateMethod('direct')}
+                  className={`px-4 py-2 text-sm font-medium ${
+                    createMethod === 'direct'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Plus className="h-4 w-4 inline mr-1" />
+                  Create Directly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateMethod('invitation')}
+                  className={`px-4 py-2 text-sm font-medium ${
+                    createMethod === 'invitation'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <UserPlus className="h-4 w-4 inline mr-1" />
+                  Send Invitation
+                </button>
+              </div>
+
               <p className="text-sm text-gray-600 mb-4">
-                The user will receive an email invitation to complete their account setup.
+                {createMethod === 'direct' 
+                  ? 'Create a user account with full details immediately.'
+                  : 'Send an email invitation for the user to complete their own registration.'}
               </p>
+
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
-                const userData = {
-                  firstName: formData.get('firstName'),
-                  lastName: formData.get('lastName'),
-                  email: formData.get('email'),
-                  role: formData.get('role'),
-                  department: formData.get('department'),
-                  phone: formData.get('phone'),
-                  jobTitle: formData.get('jobTitle')
-                };
-                createUserMutation.mutate(userData);
+                
+                if (createMethod === 'invitation') {
+                  const invitationData = {
+                    email: formData.get('email'),
+                    role: formData.get('role'),
+                    department: formData.get('department'),
+                    job_title: formData.get('jobTitle'),
+                    custom_message: formData.get('custom_message')
+                  };
+                  createInvitationMutation.mutate(invitationData);
+                } else {
+                  const userData = {
+                    firstName: formData.get('firstName'),
+                    lastName: formData.get('lastName'),
+                    email: formData.get('email'),
+                    role: formData.get('role'),
+                    department: formData.get('department'),
+                    phone: formData.get('phone'),
+                    jobTitle: formData.get('jobTitle')
+                  };
+                  createUserMutation.mutate(userData);
+                }
               }}>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="form-label">First Name *</label>
-                      <input name="firstName" required className="form-input" />
+                  {/* Common fields for both methods */}
+                  {createMethod === 'direct' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="form-label">First Name *</label>
+                        <input name="firstName" required className="form-input" />
+                      </div>
+                      <div>
+                        <label className="form-label">Last Name *</label>
+                        <input name="lastName" required className="form-input" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="form-label">Last Name *</label>
-                      <input name="lastName" required className="form-input" />
-                    </div>
-                  </div>
+                  )}
                   
                   <div>
                     <label className="form-label">Email *</label>
@@ -636,11 +703,12 @@ const UsersPage = () => {
                         <option value="manager">Manager</option>
                         <option value="staff">Staff</option>
                         <option value="viewer">Viewer</option>
+                        <option value="analyst">Analyst</option>
                       </select>
                     </div>
                     <div>
-                      <label className="form-label">Department *</label>
-                      <select name="department" required className="form-select">
+                      <label className="form-label">Department</label>
+                      <select name="department" className="form-select">
                         <option value="">Select Department</option>
                         <option value="legal">Legal</option>
                         <option value="marketing">Marketing</option>
@@ -656,26 +724,45 @@ const UsersPage = () => {
                     <input name="jobTitle" className="form-input" />
                   </div>
                   
-                  <div>
-                    <label className="form-label">Phone</label>
-                    <input name="phone" className="form-input" />
-                  </div>
+                  {createMethod === 'direct' && (
+                    <div>
+                      <label className="form-label">Phone</label>
+                      <input name="phone" className="form-input" />
+                    </div>
+                  )}
+                  
+                  {createMethod === 'invitation' && (
+                    <div>
+                      <label className="form-label">Custom Message</label>
+                      <textarea 
+                        name="custom_message" 
+                        rows={3}
+                        className="form-input"
+                        placeholder="Optional welcome message for the invited user..."
+                      />
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setCreateMethod('direct');
+                    }}
                     className="btn-outline"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={createUserMutation.isLoading}
+                    disabled={createUserMutation.isLoading || createInvitationMutation.isLoading}
                     className="btn-primary"
                   >
-                    {createUserMutation.isLoading ? 'Sending Invitation...' : 'Send Invitation'}
+                    {createMethod === 'invitation' 
+                      ? (createInvitationMutation.isLoading ? 'Sending Invitation...' : 'Send Invitation')
+                      : (createUserMutation.isLoading ? 'Creating User...' : 'Create User')}
                   </button>
                 </div>
               </form>

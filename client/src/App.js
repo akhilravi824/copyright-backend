@@ -15,7 +15,6 @@ import Templates from './pages/Templates';
 import Monitoring from './pages/Monitoring';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
-import Invitations from './pages/Invitations';
 import InviteAcceptance from './pages/InviteAcceptance';
 import Profile from './pages/Profile';
 import DeletedIncidents from './pages/DeletedIncidents';
@@ -58,7 +57,6 @@ function App() {
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/users" element={<Users />} />
-        <Route path="/invitations" element={<Invitations />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/deleted-incidents" element={<DeletedIncidents />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

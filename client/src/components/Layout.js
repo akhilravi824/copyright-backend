@@ -50,10 +50,7 @@ const Layout = ({ children }) => {
     
     // Add admin-only navigation items
     if (user?.role === 'admin') {
-      navigation.push(
-        { name: 'Users', href: '/users', icon: Users },
-        { name: 'Invitations', href: '/invitations', icon: UserPlus }
-      );
+      navigation.push({ name: 'Users', href: '/users', icon: Users });
     }
 
     // Add deleted incidents for admin and manager
