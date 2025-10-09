@@ -139,211 +139,191 @@ const InviteAcceptance = () => {
   const invitation = invitationData?.invitation;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <Mail className="h-6 w-6 text-blue-600" />
+          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+            <Mail className="h-8 w-8 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Complete Your Registration
+            Welcome to DSP
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            You've been invited to join DSP Brand Protection Platform
+            Complete your registration to get started
           </p>
         </div>
 
-        {/* Invitation Details */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center mb-2">
-            <CheckCircle className="h-5 w-5 text-blue-600 mr-2" />
-            <h3 className="text-sm font-medium text-blue-900">Invitation Details</h3>
+        {/* Registration Form */}
+        <div className="bg-white rounded-xl shadow-xl p-8 border border-gray-100">
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name *
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      id="first_name"
+                      name="first_name"
+                      type="text"
+                      required
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${errors.first_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                      placeholder="John"
+                      value={formData.first_name}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  {errors.first_name && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.first_name}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name *
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      id="last_name"
+                      name="last_name"
+                      type="text"
+                      required
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${errors.last_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                      placeholder="Doe"
+                      value={formData.last_name}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  {errors.last_name && (
+                    <p className="mt-1 text-sm text-red-600 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-1" />
+                      {errors.last_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    placeholder="+1 (555) 123-4567"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${errors.password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {errors.password}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    id="confirm_password"
+                    name="confirm_password"
+                    type="password"
+                    required
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${errors.confirm_password ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}`}
+                    placeholder="Confirm your password"
+                    value={formData.confirm_password}
+                    onChange={handleInputChange}
+                  />
+                </div>
+                {errors.confirm_password && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    {errors.confirm_password}
+                  </p>
+                )}
+              </div>
           </div>
-          <div className="text-sm text-blue-800 space-y-1">
-            <p><strong>Email:</strong> {invitation?.email}</p>
-            <p><strong>Role:</strong> {invitation?.role}</p>
-            {invitation?.department && <p><strong>Department:</strong> {invitation.department}</p>}
-            {invitation?.job_title && <p><strong>Job Title:</strong> {invitation.job_title}</p>}
-            <p><strong>Invited by:</strong> {invitation?.invited_by?.first_name} {invitation?.invited_by?.last_name}</p>
-          </div>
-          {invitation?.custom_message && (
-            <div className="mt-3 pt-3 border-t border-blue-200">
-              <p className="text-sm text-blue-800">
-                <strong>Message:</strong> {invitation.custom_message}
+
+            {errors.submit && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                  <p className="text-sm text-red-800">{errors.submit}</p>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={acceptInvitationMutation.isLoading}
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {acceptInvitationMutation.isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating Account...
+                  </div>
+                ) : (
+                  'Create Account'
+                )}
+              </button>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="text-blue-600 hover:text-blue-500 font-medium transition-colors"
+                >
+                  Sign in
+                </button>
               </p>
             </div>
-          )}
+          </form>
         </div>
 
-        {/* Registration Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-                  First Name *
-                </label>
-                <div className="mt-1 relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    id="first_name"
-                    name="first_name"
-                    type="text"
-                    required
-                    className={`input pl-10 ${errors.first_name ? 'border-red-500' : ''}`}
-                    placeholder="John"
-                    value={formData.first_name}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                {errors.first_name && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.first_name}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-                  Last Name *
-                </label>
-                <div className="mt-1 relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    id="last_name"
-                    name="last_name"
-                    type="text"
-                    required
-                    className={`input pl-10 ${errors.last_name ? 'border-red-500' : ''}`}
-                    placeholder="Doe"
-                    value={formData.last_name}
-                    onChange={handleInputChange}
-                  />
-                </div>
-                {errors.last_name && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.last_name}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                Phone Number
-              </label>
-              <div className="mt-1 relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  className="input pl-10"
-                  placeholder="+1 (555) 123-4567"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password *
-              </label>
-              <div className="mt-1 relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  className={`input pl-10 ${errors.password ? 'border-red-500' : ''}`}
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                />
-              </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {errors.password}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
-                Confirm Password *
-              </label>
-              <div className="mt-1 relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  id="confirm_password"
-                  name="confirm_password"
-                  type="password"
-                  required
-                  className={`input pl-10 ${errors.confirm_password ? 'border-red-500' : ''}`}
-                  placeholder="Confirm your password"
-                  value={formData.confirm_password}
-                  onChange={handleInputChange}
-                />
-              </div>
-              {errors.confirm_password && (
-                <p className="mt-1 text-sm text-red-600 flex items-center">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {errors.confirm_password}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {errors.submit && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <XCircle className="h-5 w-5 text-red-500 mr-2" />
-                <p className="text-sm text-red-800">{errors.submit}</p>
-              </div>
-            </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={acceptInvitationMutation.isLoading}
-              className="w-full btn-primary"
-            >
-              {acceptInvitationMutation.isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating Account...
-                </div>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </div>
-
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/login')}
-                className="text-blue-600 hover:text-blue-500 font-medium"
-              >
-                Sign in
-              </button>
-            </p>
-          </div>
-        </form>
-
         {/* Expiration Warning */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-center">
-            <Clock className="h-5 w-5 text-yellow-600 mr-2" />
-            <p className="text-sm text-yellow-800">
+            <Clock className="h-5 w-5 text-amber-600 mr-2" />
+            <p className="text-sm text-amber-800">
               This invitation expires on {new Date(invitation?.expires_at).toLocaleDateString()}
             </p>
           </div>
