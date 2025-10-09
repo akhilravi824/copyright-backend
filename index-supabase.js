@@ -1328,17 +1328,8 @@ app.post('/api/invitations', async (req, res) => {
       return res.status(400).json({ message: 'User already exists and is active' });
     }
     
-    // Check for existing pending invitation
-    const { data: existingInvitation, error: inviteCheckError } = await supabase
-      .from('user_invitations')
-      .select('id, invitation_status, expires_at')
-      .eq('email', email.toLowerCase())
-      .eq('invitation_status', 'pending')
-      .single();
-    
-    if (existingInvitation && existingInvitation.expires_at > new Date()) {
-      return res.status(400).json({ message: 'Pending invitation already exists for this email' });
-    }
+    // Allow multiple invitations to the same email address
+    // No need to check for existing pending invitations
     
     // Generate invitation token
     const invitationToken = require('crypto').randomBytes(32).toString('hex');
