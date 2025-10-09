@@ -407,17 +407,34 @@ app.get('/api/users/stats/overview', async (req, res) => {
 app.post('/api/users', async (req, res) => {
   console.log('➕ Creating new user:', req.body);
   try {
+    // Validate required fields
+    if (!req.body.firstName || !req.body.lastName || !req.body.email) {
+      return res.status(400).json({ message: 'First name, last name, and email are required' });
+    }
+
+    // Check if user already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', req.body.email.toLowerCase())
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
+
     // Map frontend field names to database field names
     const userData = {
       first_name: req.body.firstName,
       last_name: req.body.lastName,
-      email: req.body.email,
-      password: req.body.password || 'changeme123', // Default password
+      email: req.body.email.toLowerCase(), // Ensure lowercase email
+      password_hash: req.body.password || 'changeme123', // Fixed: use password_hash instead of password
       role: req.body.role || 'viewer',
       department: req.body.department || 'legal',
       phone: req.body.phone || null,
       job_title: req.body.jobTitle || null,
       is_active: true,
+      email_verified: true, // Add email_verified field
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -436,7 +453,20 @@ app.post('/api/users', async (req, res) => {
     }
 
     console.log('✅ User created:', user.id);
-    res.json({ user });
+    res.json({ 
+      success: true,
+      user: {
+        id: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        jobTitle: user.job_title,
+        phone: user.phone,
+        isActive: user.is_active
+      }
+    });
   } catch (error) {
     console.error('❌ Create user error:', error);
     res.status(500).json({ message: 'Failed to create user', error: error.message });
@@ -1265,6 +1295,415 @@ app.get('/api/incidents/:id', async (req, res) => {
   }
 });
 
+// =====================================================
+// INVITATION SYSTEM ENDPOINTS
+// =====================================================
+
+// Create invitation
+app.post('/api/invitations', async (req, res) => {
+  console.log('📧 Creating invitation:', req.body);
+  try {
+    const { email, role = 'staff', department, job_title, custom_message } = req.body;
+    
+    // Validate required fields
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    // Check if user already exists
+    const { data: existingUser, error: userCheckError } = await supabase
+      .from('users')
+      .select('id, email, is_active')
+      .eq('email', email.toLowerCase())
+      .single();
+    
+    if (existingUser && existingUser.is_active) {
+      return res.status(400).json({ message: 'User already exists and is active' });
+    }
+    
+    // Check for existing pending invitation
+    const { data: existingInvitation, error: inviteCheckError } = await supabase
+      .from('user_invitations')
+      .select('id, invitation_status, expires_at')
+      .eq('email', email.toLowerCase())
+      .eq('invitation_status', 'pending')
+      .single();
+    
+    if (existingInvitation && existingInvitation.expires_at > new Date()) {
+      return res.status(400).json({ message: 'Pending invitation already exists for this email' });
+    }
+    
+    // Generate invitation token
+    const invitationToken = require('crypto').randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    // Create invitation record
+    const { data: invitation, error: createError } = await supabase
+      .from('user_invitations')
+      .insert({
+        email: email.toLowerCase(),
+        role,
+        department,
+        job_title,
+        invitation_token: invitationToken,
+        expires_at: expiresAt,
+        invited_by: req.user?.id || '00000000-0000-0000-0000-000000000000', // Fallback for testing
+        custom_message,
+        email_delivery_status: 'pending'
+      })
+      .select()
+      .single();
+    
+    if (createError) {
+      console.error('❌ Error creating invitation:', createError);
+      return res.status(500).json({ message: 'Failed to create invitation' });
+    }
+    
+    // TODO: Send email invitation using Supabase Auth or email service
+    // For now, we'll just log the invitation link
+    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+    console.log('📧 Invitation created:', invitationLink);
+    
+    // Update email delivery status
+    await supabase
+      .from('user_invitations')
+      .update({ 
+        email_sent_at: new Date(),
+        email_delivery_status: 'sent' // In real implementation, this would be updated after email delivery
+      })
+      .eq('id', invitation.id);
+    
+    res.json({
+      success: true,
+      invitation: {
+        id: invitation.id,
+        email: invitation.email,
+        role: invitation.role,
+        department: invitation.department,
+        job_title: invitation.job_title,
+        expires_at: invitation.expires_at,
+        invitation_link: invitationLink
+      }
+    });
+  } catch (error) {
+    console.error('❌ Invitation creation error:', error);
+    res.status(500).json({ message: 'Failed to create invitation' });
+  }
+});
+
+// List invitations
+app.get('/api/invitations', async (req, res) => {
+  console.log('📋 Listing invitations');
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    
+    let query = supabase
+      .from('user_invitations')
+      .select(`
+        *,
+        invited_by_user:users!user_invitations_invited_by_fkey(first_name, last_name, email),
+        revoked_by_user:users!user_invitations_revoked_by_fkey(first_name, last_name, email)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (status) {
+      query = query.eq('invitation_status', status);
+    }
+    
+    // Pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+    
+    const { data: invitations, error } = await query;
+    
+    if (error) {
+      console.error('❌ Error fetching invitations:', error);
+      return res.status(500).json({ message: 'Failed to fetch invitations' });
+    }
+    
+    // Get total count
+    const { count } = await supabase
+      .from('user_invitations')
+      .select('*', { count: 'exact', head: true });
+    
+    res.json({
+      invitations: invitations.map(invitation => ({
+        id: invitation.id,
+        email: invitation.email,
+        role: invitation.role,
+        department: invitation.department,
+        job_title: invitation.job_title,
+        invitation_status: invitation.invitation_status,
+        expires_at: invitation.expires_at,
+        invited_at: invitation.invited_at,
+        accepted_at: invitation.accepted_at,
+        revoked_at: invitation.revoked_at,
+        resend_count: invitation.resend_count,
+        custom_message: invitation.custom_message,
+        invited_by: invitation.invited_by_user,
+        revoked_by: invitation.revoked_by_user
+      })),
+      total: count,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages: Math.ceil(count / limit)
+    });
+  } catch (error) {
+    console.error('❌ Invitations list error:', error);
+    res.status(500).json({ message: 'Failed to fetch invitations' });
+  }
+});
+
+// Resend invitation
+app.post('/api/invitations/:id/resend', async (req, res) => {
+  console.log('🔄 Resending invitation:', req.params.id);
+  try {
+    const { data: invitation, error: fetchError } = await supabase
+      .from('user_invitations')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (fetchError || !invitation) {
+      return res.status(404).json({ message: 'Invitation not found' });
+    }
+    
+    if (invitation.invitation_status !== 'pending') {
+      return res.status(400).json({ message: 'Can only resend pending invitations' });
+    }
+    
+    if (invitation.resend_count >= 3) {
+      return res.status(400).json({ message: 'Maximum resend attempts reached' });
+    }
+    
+    // Generate new token and extend expiration
+    const newToken = require('crypto').randomBytes(32).toString('hex');
+    const newExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    const { data: updatedInvitation, error: updateError } = await supabase
+      .from('user_invitations')
+      .update({
+        invitation_token: newToken,
+        expires_at: newExpiresAt,
+        resend_count: invitation.resend_count + 1,
+        last_resend_at: new Date(),
+        email_delivery_status: 'pending'
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('❌ Error resending invitation:', updateError);
+      return res.status(500).json({ message: 'Failed to resend invitation' });
+    }
+    
+    // TODO: Send new email invitation
+    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/${newToken}`;
+    console.log('📧 Invitation resent:', invitationLink);
+    
+    res.json({
+      success: true,
+      invitation: {
+        id: updatedInvitation.id,
+        email: updatedInvitation.email,
+        expires_at: updatedInvitation.expires_at,
+        resend_count: updatedInvitation.resend_count,
+        invitation_link: invitationLink
+      }
+    });
+  } catch (error) {
+    console.error('❌ Resend invitation error:', error);
+    res.status(500).json({ message: 'Failed to resend invitation' });
+  }
+});
+
+// Cancel/Revoke invitation
+app.post('/api/invitations/:id/cancel', async (req, res) => {
+  console.log('❌ Canceling invitation:', req.params.id);
+  try {
+    const { data: invitation, error: fetchError } = await supabase
+      .from('user_invitations')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (fetchError || !invitation) {
+      return res.status(404).json({ message: 'Invitation not found' });
+    }
+    
+    if (invitation.invitation_status !== 'pending') {
+      return res.status(400).json({ message: 'Can only cancel pending invitations' });
+    }
+    
+    const { data: updatedInvitation, error: updateError } = await supabase
+      .from('user_invitations')
+      .update({
+        invitation_status: 'revoked',
+        revoked_at: new Date(),
+        revoked_by: req.user?.id || '00000000-0000-0000-0000-000000000000' // Fallback for testing
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error('❌ Error canceling invitation:', updateError);
+      return res.status(500).json({ message: 'Failed to cancel invitation' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Invitation canceled successfully',
+      invitation: {
+        id: updatedInvitation.id,
+        email: updatedInvitation.email,
+        invitation_status: updatedInvitation.invitation_status,
+        revoked_at: updatedInvitation.revoked_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ Cancel invitation error:', error);
+    res.status(500).json({ message: 'Failed to cancel invitation' });
+  }
+});
+
+// Get invitation by token (for invitation acceptance)
+app.get('/api/invitations/token/:token', async (req, res) => {
+  console.log('🔍 Getting invitation by token:', req.params.token);
+  try {
+    const { data: invitation, error } = await supabase
+      .from('user_invitations')
+      .select(`
+        *,
+        invited_by_user:users!user_invitations_invited_by_fkey(first_name, last_name, email)
+      `)
+      .eq('invitation_token', req.params.token)
+      .eq('invitation_status', 'pending')
+      .single();
+    
+    if (error || !invitation) {
+      return res.status(404).json({ message: 'Invalid or expired invitation' });
+    }
+    
+    if (invitation.expires_at < new Date()) {
+      // Mark as expired
+      await supabase
+        .from('user_invitations')
+        .update({ invitation_status: 'expired' })
+        .eq('id', invitation.id);
+      
+      return res.status(410).json({ message: 'Invitation has expired' });
+    }
+    
+    res.json({
+      invitation: {
+        id: invitation.id,
+        email: invitation.email,
+        role: invitation.role,
+        department: invitation.department,
+        job_title: invitation.job_title,
+        expires_at: invitation.expires_at,
+        custom_message: invitation.custom_message,
+        invited_by: invitation.invited_by_user
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get invitation by token error:', error);
+    res.status(500).json({ message: 'Failed to fetch invitation' });
+  }
+});
+
+// Accept invitation (complete user registration)
+app.post('/api/invitations/:token/accept', async (req, res) => {
+  console.log('✅ Accepting invitation:', req.params.token);
+  try {
+    const { first_name, last_name, password, phone } = req.body;
+    
+    // Get invitation
+    const { data: invitation, error: fetchError } = await supabase
+      .from('user_invitations')
+      .select('*')
+      .eq('invitation_token', req.params.token)
+      .eq('invitation_status', 'pending')
+      .single();
+    
+    if (fetchError || !invitation) {
+      return res.status(404).json({ message: 'Invalid or expired invitation' });
+    }
+    
+    if (invitation.expires_at < new Date()) {
+      await supabase
+        .from('user_invitations')
+        .update({ invitation_status: 'expired' })
+        .eq('id', invitation.id);
+      
+      return res.status(410).json({ message: 'Invitation has expired' });
+    }
+    
+    // Validate required fields
+    if (!first_name || !last_name || !password) {
+      return res.status(400).json({ message: 'First name, last name, and password are required' });
+    }
+    
+    // Create user in users table
+    const { data: user, error: createUserError } = await supabase
+      .from('users')
+      .insert({
+        first_name,
+        last_name,
+        email: invitation.email,
+        password_hash: password, // In production, hash this password
+        role: invitation.role,
+        department: invitation.department,
+        job_title: invitation.job_title,
+        phone,
+        is_active: true,
+        email_verified: true,
+        created_by: invitation.invited_by
+      })
+      .select()
+      .single();
+    
+    if (createUserError) {
+      console.error('❌ Error creating user:', createUserError);
+      return res.status(500).json({ message: 'Failed to create user account' });
+    }
+    
+    // Mark invitation as accepted
+    await supabase
+      .from('user_invitations')
+      .update({
+        invitation_status: 'accepted',
+        accepted_at: new Date(),
+        supabase_user_id: user.id
+      })
+      .eq('id', invitation.id);
+    
+    // Create auth token
+    const tokenPayload = JSON.stringify({ email: user.email, id: user.id });
+    const token = 'Bearer-' + Buffer.from(tokenPayload).toString('base64');
+    
+    res.json({
+      success: true,
+      message: 'Account created successfully',
+      token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        department: user.department
+      }
+    });
+  } catch (error) {
+    console.error('❌ Accept invitation error:', error);
+    res.status(500).json({ message: 'Failed to accept invitation' });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('❌ Error occurred:', err);
@@ -1281,7 +1720,7 @@ app.use('*', (req, res) => {
   console.log('🔍 Request method:', req.method);
   console.log('🔍 Request path:', req.path);
   console.log('🔍 Request params:', req.params);
-  console.log('🔍 Available routes: /test, /api/health, /api/auth/*, /api/users/*, /api/cases/*, /api/incidents/*, /api/upload/*');
+  console.log('🔍 Available routes: /test, /api/health, /api/auth/*, /api/users/*, /api/cases/*, /api/incidents/*, /api/invitations/*, /api/upload/*');
   res.status(404).json({ 
     message: 'Route not found',
     method: req.method,
@@ -1297,6 +1736,12 @@ app.use('*', (req, res) => {
       'GET /api/cases',
       'GET /api/cases/stats/dashboard',
       'GET /api/incidents',
+      'POST /api/invitations',
+      'GET /api/invitations',
+      'POST /api/invitations/:id/resend',
+      'POST /api/invitations/:id/cancel',
+      'GET /api/invitations/token/:token',
+      'POST /api/invitations/:token/accept',
       'GET /api/incidents/deleted/list',
       'GET /api/incidents/:id',
       'POST /api/incidents',
