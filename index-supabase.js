@@ -59,6 +59,25 @@ app.get('/favicon.ico', (req, res) => {
   res.status(204).end();
 });
 
+// Handle Supabase Auth invitation redirects
+app.get('/auth/callback', (req, res) => {
+  console.log('🔄 Supabase Auth callback received:', req.query);
+  
+  const { access_token, type, invitation_token } = req.query;
+  
+  if (type === 'invite' && invitation_token) {
+    // Redirect to our custom invitation page
+    const redirectUrl = `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/invite/${invitation_token}`;
+    console.log('🔄 Redirecting to custom invitation page:', redirectUrl);
+    return res.redirect(redirectUrl);
+  }
+  
+  // For other auth types, redirect to login
+  const loginUrl = `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/login`;
+  console.log('🔄 Redirecting to login page:', loginUrl);
+  return res.redirect(loginUrl);
+});
+
 // Debug endpoint to check user
 app.get('/api/debug/user/:email', async (req, res) => {
   try {
@@ -1412,54 +1431,20 @@ app.post('/api/invitations', async (req, res) => {
       return res.status(500).json({ message: 'Failed to create invitation' });
     }
     
-    // Always provide manual invitation link (Supabase Auth has limitations)
+    // Generate our custom invitation link
     const invitationLink = `${process.env.CLIENT_URL || 'https://copyright-mu.vercel.app'}/invite/${invitationToken}`;
-    console.log('📧 Manual invitation link generated:', invitationLink);
+    console.log('📧 Custom invitation link generated:', invitationLink);
 
-    // Try to send via Supabase Auth (optional, may fail for existing emails)
-    try {
-      console.log('📧 Attempting to send invitation email via Supabase Auth...');
-      
-      const { data: authInvite, error: authError } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: {
-          role: role,
-          department: department,
-          job_title: job_title,
-          invitation_token: invitationToken,
-          custom_message: custom_message
-        },
-        redirectTo: invitationLink
-      });
+    // Skip Supabase Auth invitation to avoid conflicts
+    // We'll use our own invitation system instead
+    console.log('📧 Using custom invitation system (skipping Supabase Auth)');
 
-      if (authError) {
-        console.log('⚠️ Supabase Auth email failed (this is normal for existing emails):', authError.message);
-        // Don't throw error, just log it - we have the manual link
-      } else {
-        console.log('✅ Supabase Auth invitation sent:', authInvite);
-        
-        // Update invitation with Supabase Auth details
-        await supabase
-          .from('user_invitations')
-          .update({ 
-            supabase_user_id: authInvite.user?.id,
-            supabase_invite_id: authInvite.user?.id,
-            email_sent_at: new Date().toISOString(),
-            email_delivery_status: 'sent'
-          })
-          .eq('id', invitation.id);
-      }
-
-    } catch (emailError) {
-      console.log('⚠️ Email sending failed (using manual link):', emailError.message);
-      // Don't fail the entire process - we have the manual link
-    }
-
-    // Always update with manual link info
+    // Update invitation with our custom link info
     await supabase
       .from('user_invitations')
       .update({ 
-        email_delivery_status: 'manual_link_provided',
-        custom_message: custom_message || `Invitation link: ${invitationLink}`
+        email_delivery_status: 'custom_link_provided',
+        custom_message: custom_message || `You have been invited to join DSP Brand Protection Platform.\n\nPlease click the link below to create your account:\n${invitationLink}\n\nBest regards,\nDSP Team`
       })
       .eq('id', invitation.id);
     
