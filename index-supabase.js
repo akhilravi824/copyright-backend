@@ -44,11 +44,11 @@ app.use((req, res, next) => {
 
 // Simple test endpoint
 app.get('/test', (req, res) => {
-  console.log('✅ Test endpoint called - Version 2.3 - INVITATION ROUTES INCLUDED');
+  console.log('✅ Test endpoint called - Version 2.4 - DEPARTMENT FIX');
   res.json({ 
     message: 'Backend is working!', 
     timestamp: new Date().toISOString(), 
-    version: '2.3',
+    version: '2.4',
     features: ['invitations', 'user-management', 'incidents', 'cases'],
     routes: ['/api/invitations', '/api/users', '/api/incidents', '/api/cases']
   });
