@@ -9,13 +9,17 @@ const Chat = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newMessage, setNewMessage] = useState('');
-  const [showActiveUsers, setShowActiveUsers] = useState(false);
+  const [showActiveUsers, setShowActiveUsers] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null); // null = group chat, user object = DM
   const messagesEndRef = useRef(null);
 
   // Fetch messages
   const { data: messagesData, isLoading } = useQuery(
-    ['chat-messages'],
-    () => api.get('/api/chat/messages').then(res => res.data),
+    ['chat-messages', selectedUser?.id],
+    () => {
+      const params = selectedUser?.id ? `?recipient_id=${selectedUser.id}` : '';
+      return api.get(`/api/chat/messages${params}`).then(res => res.data);
+    },
     {
       enabled: isOpen,
       refetchInterval: 3000, // Poll every 3 seconds for new messages
@@ -35,7 +39,10 @@ const Chat = ({ isOpen, onClose }) => {
 
   // Send message mutation
   const sendMessageMutation = useMutation(
-    (message) => api.post('/api/chat/messages', { message }),
+    (message) => api.post('/api/chat/messages', { 
+      message,
+      recipient_id: selectedUser?.id || null
+    }),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['chat-messages']);
@@ -132,19 +139,34 @@ const Chat = ({ isOpen, onClose }) => {
     <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-1">
           <MessageCircle className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">Team Chat</h2>
-          {activeUsersData?.users && (
-            <span className="text-xs bg-blue-800 px-2 py-1 rounded-full">
-              {activeUsersData.users.length} online
-            </span>
-          )}
+          <div className="flex-1">
+            {selectedUser ? (
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {selectedUser.firstName} {selectedUser.lastName}
+                </h2>
+                <p className="text-xs text-blue-100">
+                  {selectedUser.role} • {selectedUser.isOnline ? 'Online' : 'Offline'}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-lg font-semibold">Team Chat</h2>
+                {activeUsersData?.users && (
+                  <p className="text-xs text-blue-100">
+                    {activeUsersData.users.length} online
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setShowActiveUsers(!showActiveUsers)}
-            className="p-1.5 hover:bg-blue-700 rounded-lg transition-colors"
+            className={`p-1.5 rounded-lg transition-colors ${showActiveUsers ? 'bg-blue-700' : 'hover:bg-blue-700'}`}
             title="Active Users"
           >
             <Users className="h-4 w-4" />
@@ -161,19 +183,45 @@ const Chat = ({ isOpen, onClose }) => {
       {/* Active Users Panel */}
       {showActiveUsers && (
         <div className="bg-blue-50 border-b border-blue-100 p-3">
-          <h3 className="text-xs font-semibold text-gray-700 mb-2">ACTIVE USERS</h3>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {activeUsersData?.users?.map((activeUser) => (
-              <div key={activeUser.id} className="flex items-center space-x-2 text-sm">
-                <div className={`w-2 h-2 rounded-full ${activeUser.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                <span className="text-gray-900 font-medium">
-                  {activeUser.firstName} {activeUser.lastName}
-                </span>
-                <span className={`text-xs px-1.5 py-0.5 rounded ${getRoleBadgeColor(activeUser.role)}`}>
-                  {activeUser.role}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-gray-700">SELECT USER TO CHAT</h3>
+            {selectedUser && (
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Group Chat
+              </button>
+            )}
+          </div>
+          <div className="space-y-1 max-h-48 overflow-y-auto">
+            {activeUsersData?.users
+              ?.filter(activeUser => activeUser.email !== user?.email) // Don't show yourself
+              ?.map((activeUser) => (
+                <button
+                  key={activeUser.id}
+                  onClick={() => {
+                    setSelectedUser(activeUser);
+                    setShowActiveUsers(false);
+                  }}
+                  className={`w-full flex items-center space-x-2 text-sm p-2 rounded-lg transition-colors ${
+                    selectedUser?.id === activeUser.id
+                      ? 'bg-blue-200 hover:bg-blue-300'
+                      : 'hover:bg-blue-100'
+                  }`}
+                >
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${activeUser.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  <span className="text-gray-900 font-medium flex-1 text-left truncate">
+                    {activeUser.firstName} {activeUser.lastName}
+                  </span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded flex-shrink-0 ${getRoleBadgeColor(activeUser.role)}`}>
+                    {activeUser.role}
+                  </span>
+                </button>
+              ))}
+            {(!activeUsersData?.users || activeUsersData.users.filter(u => u.email !== user?.email).length === 0) && (
+              <p className="text-xs text-gray-500 text-center py-2">No other users online</p>
+            )}
           </div>
         </div>
       )}
@@ -242,12 +290,29 @@ const Chat = ({ isOpen, onClose }) => {
 
       {/* Input */}
       <div className="border-t border-gray-200 p-4 bg-white">
+        {selectedUser ? (
+          <div className="mb-2 text-xs text-gray-600 flex items-center justify-between">
+            <span>
+              Chatting with <span className="font-semibold">{selectedUser.firstName} {selectedUser.lastName}</span>
+            </span>
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              Switch to Group Chat
+            </button>
+          </div>
+        ) : (
+          <div className="mb-2 text-xs text-gray-600 text-center">
+            <span className="font-semibold">Group Chat</span> - Everyone can see these messages
+          </div>
+        )}
         <form onSubmit={handleSendMessage} className="flex space-x-2">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder={selectedUser ? `Message ${selectedUser.firstName}...` : "Message everyone..."}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             disabled={sendMessageMutation.isLoading}
           />
@@ -263,9 +328,6 @@ const Chat = ({ isOpen, onClose }) => {
             )}
           </button>
         </form>
-        <p className="text-xs text-gray-500 mt-2 text-center">
-          Chat with your team members in real-time
-        </p>
       </div>
     </div>
   );
