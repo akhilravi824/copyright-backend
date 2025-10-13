@@ -42,6 +42,264 @@ app.use((req, res, next) => {
   next();
 });
 
+// =====================================================
+// CHAT ROUTES
+// =====================================================
+
+// Get chat messages
+app.get('/api/chat/messages', async (req, res) => {
+  console.log('💬 Fetching chat messages');
+  try {
+    const { limit = 50, before } = req.query;
+    
+    let query = supabase
+      .from('chat_messages')
+      .select(`
+        id,
+        message,
+        created_at,
+        user:users!user_id (
+          id,
+          first_name,
+          last_name,
+          email,
+          role
+        )
+      `)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false })
+      .limit(parseInt(limit));
+    
+    if (before) {
+      query = query.lt('created_at', before);
+    }
+    
+    const { data: messages, error } = await query;
+    
+    if (error) {
+      console.error('❌ Error fetching messages:', error);
+      return res.status(500).json({ message: 'Failed to fetch messages' });
+    }
+    
+    // Reverse to show oldest first
+    const reversedMessages = messages.reverse();
+    
+    res.json({
+      success: true,
+      messages: reversedMessages.map(msg => ({
+        id: msg.id,
+        message: msg.message,
+        createdAt: msg.created_at,
+        user: msg.user ? {
+          id: msg.user.id,
+          firstName: msg.user.first_name,
+          lastName: msg.user.last_name,
+          email: msg.user.email,
+          role: msg.user.role
+        } : null
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Chat messages error:', error);
+    res.status(500).json({ message: 'Failed to fetch chat messages' });
+  }
+});
+
+// Send chat message
+app.post('/api/chat/messages', async (req, res) => {
+  console.log('💬 Sending chat message');
+  try {
+    const { message } = req.body;
+    
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Message is required' });
+    }
+    
+    // Get current user info from authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization required' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let userEmail, userId;
+    
+    try {
+      const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+      userEmail = decoded.email;
+      userId = decoded.id;
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    // Insert message
+    const { data: newMessage, error: insertError } = await supabase
+      .from('chat_messages')
+      .insert({
+        user_id: userId,
+        message: message.trim()
+      })
+      .select(`
+        id,
+        message,
+        created_at,
+        user:users!user_id (
+          id,
+          first_name,
+          last_name,
+          email,
+          role
+        )
+      `)
+      .single();
+    
+    if (insertError) {
+      console.error('❌ Error inserting message:', insertError);
+      return res.status(500).json({ message: 'Failed to send message' });
+    }
+    
+    // Update user presence
+    await supabase.rpc('update_user_presence', { p_user_id: userId }).catch(err => {
+      console.warn('⚠️ Failed to update presence:', err);
+    });
+    
+    res.json({
+      success: true,
+      message: {
+        id: newMessage.id,
+        message: newMessage.message,
+        createdAt: newMessage.created_at,
+        user: newMessage.user ? {
+          id: newMessage.user.id,
+          firstName: newMessage.user.first_name,
+          lastName: newMessage.user.last_name,
+          email: newMessage.user.email,
+          role: newMessage.user.role
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('❌ Send message error:', error);
+    res.status(500).json({ message: 'Failed to send message' });
+  }
+});
+
+// Get active users
+app.get('/api/chat/active-users', async (req, res) => {
+  console.log('👥 Fetching active users');
+  try {
+    const { data: activeUsers, error } = await supabase
+      .rpc('get_active_users');
+    
+    if (error) {
+      console.error('❌ Error fetching active users:', error);
+      return res.status(500).json({ message: 'Failed to fetch active users' });
+    }
+    
+    res.json({
+      success: true,
+      users: activeUsers.map(user => ({
+        id: user.user_id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        role: user.role,
+        lastSeen: user.last_seen,
+        isOnline: user.is_online
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Active users error:', error);
+    res.status(500).json({ message: 'Failed to fetch active users' });
+  }
+});
+
+// Update user presence (heartbeat)
+app.post('/api/chat/presence', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization required' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let userId;
+    
+    try {
+      const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+      userId = decoded.id;
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    await supabase.rpc('update_user_presence', { p_user_id: userId });
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Presence update error:', error);
+    res.status(500).json({ message: 'Failed to update presence' });
+  }
+});
+
+// Delete chat message (soft delete)
+app.delete('/api/chat/messages/:id', async (req, res) => {
+  console.log('🗑️ Deleting chat message:', req.params.id);
+  try {
+    const messageId = req.params.id;
+    
+    // Get current user
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization required' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let userId;
+    
+    try {
+      const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+      userId = decoded.id;
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    
+    // Check if user owns the message
+    const { data: message, error: fetchError } = await supabase
+      .from('chat_messages')
+      .select('user_id')
+      .eq('id', messageId)
+      .single();
+    
+    if (fetchError || !message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+    
+    if (message.user_id !== userId) {
+      return res.status(403).json({ message: 'You can only delete your own messages' });
+    }
+    
+    // Soft delete
+    const { error: deleteError } = await supabase
+      .from('chat_messages')
+      .update({ is_deleted: true })
+      .eq('id', messageId);
+    
+    if (deleteError) {
+      console.error('❌ Error deleting message:', deleteError);
+      return res.status(500).json({ message: 'Failed to delete message' });
+    }
+    
+    res.json({ success: true, message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('❌ Delete message error:', error);
+    res.status(500).json({ message: 'Failed to delete message' });
+  }
+});
+
+// =====================================================
+// TEST ROUTES
+// =====================================================
+
 // Simple test endpoint
 app.get('/test', (req, res) => {
   console.log('✅ Test endpoint called - Version 2.4 - DEPARTMENT FIX');
