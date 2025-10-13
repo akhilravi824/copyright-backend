@@ -344,6 +344,87 @@ function getCommonSearchTerms(query) {
 // @access  Private
 router.get('/:id', auth, async (req, res) => {
   try {
+    const db = databaseService.getService();
+
+    if (databaseService.type === 'supabase') {
+      // Supabase implementation
+      const { data: incident, error } = await db.client
+        .from('incidents')
+        .select(`
+          *,
+          reporter:users!incidents_reporter_id_fkey(id, first_name, last_name, email, department, phone),
+          assigned_user:users!incidents_assigned_to_fkey(id, first_name, last_name, email, phone)
+        `)
+        .eq('id', req.params.id)
+        .single();
+
+      if (error || !incident) {
+        console.error('Error fetching case:', error);
+        return res.status(404).json({ message: 'Case not found' });
+      }
+
+      // Check permissions
+      if (req.user.role === 'staff' && 
+          incident.reporter_id !== req.user.id && 
+          incident.assigned_to !== req.user.id) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      // Format the response
+      const caseData = {
+        _id: incident.id,
+        id: incident.id,
+        title: incident.title,
+        description: incident.description,
+        reporter: incident.reporter ? {
+          _id: incident.reporter.id,
+          id: incident.reporter.id,
+          firstName: incident.reporter.first_name,
+          lastName: incident.reporter.last_name,
+          email: incident.reporter.email,
+          department: incident.reporter.department,
+          phone: incident.reporter.phone,
+        } : null,
+        incidentType: incident.incident_type,
+        incident_type: incident.incident_type,
+        severity: incident.severity,
+        status: incident.status,
+        priority: incident.priority,
+        infringedContent: incident.infringed_content,
+        infringed_content: incident.infringed_content,
+        infringedUrls: incident.infringed_urls || [],
+        infringerInfo: incident.infringer_info || {},
+        assignedTo: incident.assigned_user ? {
+          _id: incident.assigned_user.id,
+          id: incident.assigned_user.id,
+          firstName: incident.assigned_user.first_name,
+          lastName: incident.assigned_user.last_name,
+          email: incident.assigned_user.email,
+          phone: incident.assigned_user.phone,
+        } : null,
+        assignedAt: incident.assigned_at,
+        dueDate: incident.due_date,
+        caseNumber: incident.case_number,
+        tags: incident.tags || [],
+        evidence: incident.evidence_files || [],
+        evidenceFiles: incident.evidence_files || [],
+        notes: incident.notes || [],
+        reportedAt: incident.reported_at,
+        reported_at: incident.reported_at,
+        resolvedAt: incident.resolved_at,
+        lastUpdated: incident.updated_at,
+        createdAt: incident.created_at,
+        updatedAt: incident.updated_at,
+      };
+
+      res.json({
+        case: caseData,
+        documents: [] // TODO: Add documents support if needed
+      });
+      return;
+    }
+
+    // MongoDB implementation
     const case_ = await Incident.findById(req.params.id)
       .populate('reporter', 'firstName lastName email department phone')
       .populate('assignedTo', 'firstName lastName email phone')
@@ -446,6 +527,77 @@ router.put('/:id/status', auth, requirePermission('edit_incidents'), [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    const db = databaseService.getService();
+
+    if (databaseService.type === 'supabase') {
+      // Supabase implementation
+      const { data: incident, error: fetchError } = await db.client
+        .from('incidents')
+        .select('*, reporter:users!incidents_reporter_id_fkey(first_name, last_name, email)')
+        .eq('id', req.params.id)
+        .single();
+
+      if (fetchError || !incident) {
+        return res.status(404).json({ message: 'Case not found' });
+      }
+
+      const oldStatus = incident.status;
+      const updateData = {
+        status: req.body.status,
+        updated_at: new Date().toISOString()
+      };
+
+      // If resolving, set resolved_at timestamp
+      if (req.body.status === 'resolved' && oldStatus !== 'resolved') {
+        updateData.resolved_at = new Date().toISOString();
+      }
+
+      // Update the incident
+      const { data: updatedIncident, error: updateError } = await db.client
+        .from('incidents')
+        .update(updateData)
+        .eq('id', req.params.id)
+        .select('*, reporter:users!incidents_reporter_id_fkey(first_name, last_name, email), assigned_user:users!incidents_assigned_to_fkey(first_name, last_name, email)')
+        .single();
+
+      if (updateError) {
+        console.error('Error updating status:', updateError);
+        return res.status(500).json({ message: 'Failed to update status' });
+      }
+
+      // Add note about status change
+      const notes = incident.notes || [];
+      const newNote = {
+        content: req.body.notes 
+          ? `Status changed from ${oldStatus} to ${req.body.status}. ${req.body.notes}`
+          : `Status changed from ${oldStatus} to ${req.body.status}`,
+        author: {
+          id: req.user.id,
+          firstName: req.user.firstName || req.user.first_name,
+          lastName: req.user.lastName || req.user.last_name,
+          email: req.user.email
+        },
+        createdAt: new Date().toISOString()
+      };
+      notes.push(newNote);
+
+      await db.client
+        .from('incidents')
+        .update({ notes })
+        .eq('id', req.params.id);
+
+      res.json({
+        message: 'Status updated successfully',
+        case: {
+          ...updatedIncident,
+          _id: updatedIncident.id,
+          caseNumber: updatedIncident.case_number
+        }
+      });
+      return;
+    }
+
+    // MongoDB implementation
     const case_ = await Incident.findById(req.params.id);
     if (!case_) {
       return res.status(404).json({ message: 'Case not found' });
