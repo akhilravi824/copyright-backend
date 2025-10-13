@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import api from '../api/api';
 import toast from 'react-hot-toast';
@@ -24,6 +24,7 @@ import {
 
 const CaseDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery(
@@ -54,22 +55,48 @@ const CaseDetail = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="loading-spinner" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   if (error || !data) {
+    console.error('Case detail error:', error);
     return (
       <div className="text-center py-12">
         <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
         <h3 className="mt-2 text-sm font-medium text-gray-900">Case not found</h3>
-        <p className="mt-1 text-sm text-gray-500">The case you're looking for doesn't exist.</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {error?.response?.data?.message || 'The case you\'re looking for doesn\'t exist.'}
+        </p>
+        <button 
+          onClick={() => navigate('/cases')}
+          className="mt-4 btn-primary"
+        >
+          Back to Cases
+        </button>
       </div>
     );
   }
 
-  const { case: caseData, documents } = data;
+  const { case: caseData, documents } = data || {};
+  
+  if (!caseData) {
+    console.error('Case data is missing from response:', data);
+    return (
+      <div className="text-center py-12">
+        <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900">Invalid case data</h3>
+        <p className="mt-1 text-sm text-gray-500">The case data could not be loaded properly.</p>
+        <button 
+          onClick={() => navigate('/cases')}
+          className="mt-4 btn-primary"
+        >
+          Back to Cases
+        </button>
+      </div>
+    );
+  }
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -112,7 +139,10 @@ const CaseDetail = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <button className="btn-outline">
+          <button 
+            onClick={() => navigate('/cases')}
+            className="btn-outline"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Cases
           </button>
