@@ -138,33 +138,71 @@ router.post('/messages', auth, async (req, res) => {
   }
 });
 
-// Get active users
+// Get all users with their online status
 router.get('/active-users', auth, async (req, res) => {
-  console.log('👥 Fetching active users');
+  console.log('👥 Fetching all users');
   try {
-    const { data: activeUsers, error } = await supabase
-      .rpc('get_active_users');
+    const currentUserId = req.user.id;
+    
+    // Get all users with their presence status
+    const { data: users, error } = await supabase
+      .from('users')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        role,
+        created_at
+      `)
+      .eq('is_active', true)
+      .order('first_name', { ascending: true });
     
     if (error) {
-      console.error('❌ Error fetching active users:', error);
-      return res.status(500).json({ message: 'Failed to fetch active users' });
+      console.error('❌ Error fetching users:', error);
+      return res.status(500).json({ message: 'Failed to fetch users' });
     }
+    
+    // Get presence information for all users
+    const { data: presenceData } = await supabase
+      .from('user_presence')
+      .select('user_id, last_seen, is_online, status');
+    
+    // Create a map of presence data
+    const presenceMap = {};
+    if (presenceData) {
+      presenceData.forEach(p => {
+        presenceMap[p.user_id] = p;
+      });
+    }
+    
+    // Combine user data with presence data
+    const usersWithPresence = users
+      .filter(user => user.id !== currentUserId) // Exclude current user
+      .map(user => {
+        const presence = presenceMap[user.id];
+        const lastSeen = presence?.last_seen || user.created_at;
+        const isOnline = presence?.is_online && 
+                        new Date(lastSeen) > new Date(Date.now() - 5 * 60 * 1000); // 5 minutes
+        
+        return {
+          id: user.id,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          email: user.email,
+          role: user.role,
+          lastSeen: lastSeen,
+          isOnline: isOnline
+        };
+      });
     
     res.json({
       success: true,
-      users: activeUsers.map(user => ({
-        id: user.user_id,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        email: user.email,
-        role: user.role,
-        lastSeen: user.last_seen,
-        isOnline: user.is_online
-      }))
+      users: usersWithPresence
     });
   } catch (error) {
-    console.error('❌ Active users error:', error);
-    res.status(500).json({ message: 'Failed to fetch active users' });
+    console.error('❌ Users error:', error);
+    res.status(500).json({ message: 'Failed to fetch users' });
   }
 });
 

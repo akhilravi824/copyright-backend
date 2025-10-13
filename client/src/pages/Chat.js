@@ -26,7 +26,7 @@ const ChatPage = () => {
     }
   );
 
-  // Fetch active users
+  // Fetch all users with their online status
   const { data: activeUsersData } = useQuery(
     ['active-users'],
     () => api.get('/api/chat/active-users').then(res => res.data),
@@ -134,16 +134,16 @@ const ChatPage = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100%-6rem)]">
-        {/* Active Users Sidebar */}
+        {/* Users Sidebar */}
         <div className="lg:col-span-1 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4">
             <div className="flex items-center space-x-2">
               <Users className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">Active Users</h2>
+              <h2 className="text-lg font-semibold">Users</h2>
             </div>
             {activeUsersData?.users && (
               <p className="text-xs text-blue-100 mt-1">
-                {activeUsersData.users.length} online
+                {activeUsersData.users.filter(u => u.isOnline).length} online • {activeUsersData.users.length} total
               </p>
             )}
           </div>
@@ -159,31 +159,34 @@ const ChatPage = () => {
             )}
             
             <div className="space-y-2 max-h-[calc(100vh-20rem)] overflow-y-auto">
-              {activeUsersData?.users
-                ?.filter(activeUser => activeUser.email !== user?.email)
-                ?.map((activeUser) => (
-                  <button
-                    key={activeUser.id}
-                    onClick={() => setSelectedUser(activeUser)}
-                    className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${
-                      selectedUser?.id === activeUser.id
-                        ? 'bg-blue-100 border-2 border-blue-500'
-                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                    }`}
-                  >
-                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${activeUser.isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {activeUser.firstName} {activeUser.lastName}
-                      </p>
+              {activeUsersData?.users?.map((activeUser) => (
+                <button
+                  key={activeUser.id}
+                  onClick={() => setSelectedUser(activeUser)}
+                  className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors ${
+                    selectedUser?.id === activeUser.id
+                      ? 'bg-blue-100 border-2 border-blue-500'
+                      : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                  }`}
+                >
+                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${activeUser.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {activeUser.firstName} {activeUser.lastName}
+                    </p>
+                    <div className="flex items-center space-x-1 mt-1">
                       <span className={`text-xs px-2 py-0.5 rounded ${getRoleBadgeColor(activeUser.role)}`}>
                         {activeUser.role}
                       </span>
+                      {!activeUser.isOnline && (
+                        <span className="text-xs text-gray-400">• offline</span>
+                      )}
                     </div>
-                  </button>
-                ))}
-              {(!activeUsersData?.users || activeUsersData.users.filter(u => u.email !== user?.email).length === 0) && (
-                <p className="text-sm text-gray-500 text-center py-4">No other users online</p>
+                  </div>
+                </button>
+              ))}
+              {(!activeUsersData?.users || activeUsersData.users.length === 0) && (
+                <p className="text-sm text-gray-500 text-center py-4">No users found</p>
               )}
             </div>
           </div>
