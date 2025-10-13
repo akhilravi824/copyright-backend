@@ -482,3 +482,4 @@ const EditIncident = () => {
 };
 
 export default EditIncident;
+
