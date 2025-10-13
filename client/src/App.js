@@ -9,6 +9,7 @@ import Incidents from './pages/Incidents';
 import IncidentDetail from './pages/IncidentDetail';
 import CreateIncident from './pages/CreateIncident';
 import EditIncident from './pages/EditIncident';
+import ChatPage from './pages/Chat';
 import Cases from './pages/Cases';
 import CaseDetail from './pages/CaseDetail';
 import Documents from './pages/Documents';
@@ -63,6 +64,7 @@ function App() {
         <Route path="/users" element={<Users />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/deleted-incidents" element={<DeletedIncidents />} />
+        <Route path="/chat" element={<ChatPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>

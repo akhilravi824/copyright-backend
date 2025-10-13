@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import SearchSuggestions from './SearchSuggestions';
-import Chat from './Chat';
 import {
   Menu,
   X,
@@ -25,7 +24,6 @@ import {
 
 const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -37,7 +35,8 @@ const Layout = ({ children }) => {
   if (user?.role === 'analyst') {
     navigation.push(
       { name: 'Dashboard', href: '/dashboard', icon: Home },
-      { name: 'Incidents', href: '/incidents', icon: FileText }
+      { name: 'Incidents', href: '/incidents', icon: FileText },
+      { name: 'Chat', href: '/chat', icon: MessageCircle }
     );
   } else {
     // All other roles: Full navigation
@@ -60,6 +59,9 @@ const Layout = ({ children }) => {
     if (user?.role === 'admin' || user?.role === 'manager') {
       navigation.push({ name: 'Deleted Incidents', href: '/deleted-incidents', icon: Trash2 });
     }
+    
+    // Add chat for everyone
+    navigation.push({ name: 'Chat', href: '/chat', icon: MessageCircle });
   }
 
   const isActive = (href) => {
@@ -221,16 +223,6 @@ const Layout = ({ children }) => {
               </div>
             </div>
             <div className="ml-4 flex items-center md:ml-6 space-x-2">
-              <button
-                onClick={() => setChatOpen(!chatOpen)}
-                className="relative bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                title="Team Chat"
-              >
-                <MessageCircle className="h-6 w-6" />
-                {chatOpen && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-blue-600 rounded-full"></span>
-                )}
-              </button>
               <button className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 <Bell className="h-6 w-6" />
               </button>
@@ -253,9 +245,6 @@ const Layout = ({ children }) => {
           </div>
         </main>
       </div>
-
-      {/* Chat Component */}
-      <Chat isOpen={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 };

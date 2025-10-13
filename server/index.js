@@ -45,6 +45,7 @@ if (process.env.DATABASE_TYPE === 'supabase') {
   app.use('/api/incidents', require('./routes/incidents-supabase')); // Use Supabase incident routes
   // Add other Supabase routes as they are converted
   app.use('/api/users', require('./routes/users-supabase'));
+  app.use('/api/chat', require('./routes/chat')); // Chat routes (Supabase only)
 } else {
   app.use('/api/auth', require('./routes/auth')); // Original MongoDB auth routes
   app.use('/api/incidents', require('./routes/incidents')); // Original MongoDB incident routes
