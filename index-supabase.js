@@ -50,7 +50,23 @@ app.use((req, res, next) => {
 app.get('/api/chat/messages', async (req, res) => {
   console.log('💬 Fetching chat messages');
   try {
-    const { limit = 50, before } = req.query;
+    const { limit = 50, before, recipient_id } = req.query;
+    
+    // Get current user
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Authorization required' });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    let userId;
+    
+    try {
+      const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+      userId = decoded.id;
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
     
     let query = supabase
       .from('chat_messages')
@@ -58,6 +74,7 @@ app.get('/api/chat/messages', async (req, res) => {
         id,
         message,
         created_at,
+        recipient_id,
         user:users!user_id (
           id,
           first_name,
@@ -72,6 +89,15 @@ app.get('/api/chat/messages', async (req, res) => {
     
     if (before) {
       query = query.lt('created_at', before);
+    }
+    
+    // Filter messages based on recipient
+    if (recipient_id && recipient_id !== 'null') {
+      // Direct messages: show messages between current user and selected user
+      query = query.or(`and(user_id.eq.${userId},recipient_id.eq.${recipient_id}),and(user_id.eq.${recipient_id},recipient_id.eq.${userId})`);
+    } else {
+      // Group chat: show messages with no recipient (group messages)
+      query = query.is('recipient_id', null);
     }
     
     const { data: messages, error } = await query;
@@ -109,7 +135,7 @@ app.get('/api/chat/messages', async (req, res) => {
 app.post('/api/chat/messages', async (req, res) => {
   console.log('💬 Sending chat message');
   try {
-    const { message } = req.body;
+    const { message, recipient_id } = req.body;
     
     if (!message || !message.trim()) {
       return res.status(400).json({ message: 'Message is required' });
@@ -137,12 +163,14 @@ app.post('/api/chat/messages', async (req, res) => {
       .from('chat_messages')
       .insert({
         user_id: userId,
-        message: message.trim()
+        message: message.trim(),
+        recipient_id: recipient_id || null // null for group chat, user ID for DM
       })
       .select(`
         id,
         message,
         created_at,
+        recipient_id,
         user:users!user_id (
           id,
           first_name,
