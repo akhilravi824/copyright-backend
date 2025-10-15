@@ -32,4 +32,3 @@ Required environment variables:
 
 The frontend should be configured to make API calls to this backend URL.
 
-

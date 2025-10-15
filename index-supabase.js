@@ -4,6 +4,9 @@ const multer = require('multer');
 const path = require('path');
 const supabase = require('./config/supabase');
 const emailService = require('./services/emailService');
+const cron = require('node-cron');
+const { reverseImagePipeline } = require('./services/reverseImageService');
+const { computePHash, computeClipEmbedding } = require('./services/imageSimilarity');
 
 const app = express();
 
@@ -682,6 +685,96 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('❌ File upload error:', error);
     res.status(500).json({ message: 'Failed to upload file' });
+  }
+});
+
+// Reverse image: compute local signatures from uploaded buffer (no external calls)
+app.post('/api/images/signature', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    const [phash, clip] = await Promise.all([
+      computePHash(req.file.buffer),
+      computeClipEmbedding(req.file.buffer)
+    ]);
+    res.json({ phash, clip: Array.isArray(clip) ? clip : null });
+  } catch (e) {
+    console.error('❌ Signature error:', e);
+    res.status(500).json({ message: 'Failed to compute signatures' });
+  }
+});
+
+// Reverse image search pipeline: serper -> download thumbnails -> similarity -> optional classify
+app.post('/api/reverse-image/search', upload.single('file'), async (req, res) => {
+  try {
+    const { query, clipWeight, topK } = req.body;
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    if (!query || !query.trim()) return res.status(400).json({ message: 'Query is required' });
+
+    // Optional: derive userId from our simple auth token
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        const decoded = JSON.parse(Buffer.from(token.split('-')[1], 'base64').toString());
+        userId = decoded.id || null;
+      } catch {}
+    }
+
+    // Compute signatures for original image for storage
+    const [phash, clip] = await Promise.all([
+      computePHash(req.file.buffer),
+      computeClipEmbedding(req.file.buffer)
+    ]);
+
+    const results = await reverseImagePipeline({
+      imageBuffer: req.file.buffer,
+      query: query.trim(),
+      clipWeight: clipWeight !== undefined ? Number(clipWeight) : 0.5,
+      topK: topK !== undefined ? Number(topK) : 10,
+    });
+
+    // Persist query and results (best-effort)
+    try {
+      const { data: q, error: qerr } = await supabase
+        .from('reverse_image_queries')
+        .insert({
+          user_id: userId,
+          query: query.trim(),
+          original_filename: req.file.originalname,
+          phash,
+          clip_embedding: Array.isArray(clip) ? clip : null,
+        })
+        .select('id')
+        .single();
+      if (!qerr && q?.id) {
+        const rows = results.map(r => ({
+          query_id: q.id,
+          url: r.link || r.imageUrl || r.thumbnailUrl,
+          source: r.source || null,
+          title: r.title || null,
+          thumbnail_url: r.thumbnailUrl || r.imageUrl || null,
+          similarity: r.similarity ?? null,
+          phash_similarity: r.phashSim ?? null,
+          clip_similarity: r.clipSim ?? null,
+          classification: r.classification?.label || null,
+          classification_score: r.classification?.score ?? null,
+          potential_infringement: !!r.potentialInfringement,
+          text_snippet: r.textSnippet || null,
+        }));
+        if (rows.length) {
+          await supabase.from('reverse_image_results').insert(rows);
+        }
+      }
+    } catch (persistErr) {
+      console.warn('Reverse image persist warning:', persistErr?.message || persistErr);
+    }
+
+    res.json({ results, phash, clip: Array.isArray(clip) ? clip : null });
+  } catch (e) {
+    console.error('❌ Reverse image search error:', e?.response?.data || e);
+    const status = e?.response?.status || 500;
+    res.status(status).json({ message: 'Reverse image search failed', error: e?.message });
   }
 });
 
@@ -2390,3 +2483,35 @@ console.log('🗄️ Database: Supabase');
 console.log('✅ Soft delete endpoint: POST /api/incidents/:id/delete');
 
 module.exports = app;
+
+// Schedule weekly rescan of recent reverse image queries (Sunday 03:00 UTC)
+try {
+  cron.schedule('0 3 * * 0', async () => {
+    try {
+      console.log('⏰ Running weekly reverse image rescan task');
+      // Fetch last 100 queries and re-run pipeline storing results again
+      const { data: queries, error } = await supabase
+        .from('reverse_image_queries')
+        .select('id, query')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) {
+        console.warn('Rescan fetch error', error);
+        return;
+      }
+      for (const q of queries || []) {
+        try {
+          // No image buffer to recompute; skip heavy part. This is a placeholder where you might
+          // kick off a lightweight recheck using stored thumbnails or external triggers.
+          console.log('Rescan placeholder for query', q.id, q.query);
+        } catch (inner) {
+          console.warn('Rescan item failed', q.id, inner.message);
+        }
+      }
+    } catch (taskErr) {
+      console.warn('Weekly rescan task error', taskErr.message);
+    }
+  });
+} catch (cronErr) {
+  console.warn('Cron init failed', cronErr.message);
+}
