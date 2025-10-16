@@ -31,7 +31,8 @@ app.use(cors({
   origin: [
     process.env.CLIENT_URL || 'http://localhost:3000',
     'https://copyright-mu.vercel.app',
-    'https://vercel.app'
+    'https://copyright.vercel.app',
+    /\.vercel\.app$/  // Allow all *.vercel.app domains
   ],
   credentials: true
 }));
