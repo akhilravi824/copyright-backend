@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
-const auth = require('../middleware/auth-supabase');
+const { auth } = require('../middleware/auth-supabase');
 
 // Get chat messages
 router.get('/messages', auth, async (req, res) => {

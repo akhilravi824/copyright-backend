@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest"
+    "test": "jest",
+    "postinstall": "echo 'Skipping Puppeteer chromium download on Vercel'"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.74.0",
@@ -31,5 +32,8 @@
   "devDependencies": {
     "jest": "^29.7.0",
     "nodemon": "^3.0.2"
+  },
+  "puppeteer": {
+    "skipDownload": true
   }
 }

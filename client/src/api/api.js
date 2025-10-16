@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Get the backend URL from environment variables or use the deployed backend
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://backend-deploy-delta-three.vercel.app';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://copyright-backend.vercel.app';
 
 // Create axios instance with base URL
 const api = axios.create({
