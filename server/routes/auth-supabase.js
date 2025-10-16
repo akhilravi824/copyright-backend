@@ -150,7 +150,36 @@ router.post('/login', [
 
     if (databaseService.type === 'supabase') {
       // Find user using Supabase
-      const user = await db.getUserByEmail(email);
+      let user = await db.getUserByEmail(email);
+
+      // If admin user doesn't exist and trying to login as admin, create it
+      if (!user && email === 'admin@dsp.com' && password === 'admin123') {
+        console.log('🔐 Creating default admin user...');
+        try {
+          const salt = await bcrypt.genSalt(10);
+          const password_hash = await bcrypt.hash(password, salt);
+          const newAdmin = await db.createUser({
+            first_name: 'Admin',
+            last_name: 'User',
+            email: 'admin@dsp.com',
+            password_hash: password_hash,
+            role: 'admin',
+            department: 'management',
+            is_active: true,
+            email_verified: true,
+            preferences: {
+              emailNotifications: true,
+              dashboardLayout: 'default',
+              timezone: 'America/Los_Angeles'
+            }
+          });
+          user = newAdmin;
+          console.log('✅ Default admin user created successfully');
+        } catch (createError) {
+          console.error('❌ Failed to create admin user:', createError);
+          return res.status(500).json({ message: 'Failed to create admin user' });
+        }
+      }
 
       if (!user) {
         return res.status(401).json({ message: 'Invalid credentials' });

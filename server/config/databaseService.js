@@ -3,7 +3,7 @@ const supabaseService = require('../services/supabaseService');
 
 class DatabaseService {
   constructor() {
-    this.type = process.env.DATABASE_TYPE || 'mongodb';
+    this.type = process.env.DATABASE_TYPE || 'supabase';
     this.mongodb = null;
     this.supabase = supabaseService;
   }

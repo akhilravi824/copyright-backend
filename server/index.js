@@ -28,7 +28,11 @@ app.use(limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: [
+    process.env.CLIENT_URL || 'http://localhost:3000',
+    'https://copyright-mu.vercel.app',
+    'https://vercel.app'
+  ],
   credentials: true
 }));
 
@@ -39,8 +43,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Logging
 app.use(morgan('combined'));
 
-// Routes
-if (process.env.DATABASE_TYPE === 'supabase') {
+// Routes - Default to Supabase for production
+const dbType = process.env.DATABASE_TYPE || 'supabase';
+if (dbType === 'supabase') {
   app.use('/api/auth', require('./routes/auth-supabase')); // Use Supabase auth routes
   app.use('/api/incidents', require('./routes/incidents-supabase')); // Use Supabase incident routes
   // Add other Supabase routes as they are converted
@@ -76,35 +81,18 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Start server
-const startServer = async () => {
+// Initialize database connection for Vercel
+const initializeDatabase = async () => {
   try {
-    // Connect to database
     await databaseService.connect();
-    
-    // Create database indexes if using MongoDB
-    if (process.env.DATABASE_TYPE !== 'supabase') {
-      const mongoose = require('mongoose');
-      const User = require('./models/User');
-      const Incident = require('./models/Incident');
-      
-      await User.createIndexes();
-      await Incident.createIndexes();
-      console.log('✅ Database indexes created successfully');
-    }
-    
-    // Start server
-    app.listen(PORT, () => {
-      console.log(`🚀 DSP Brand Protection API running on port ${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🗄️  Database: ${process.env.DATABASE_TYPE || 'mongodb'}`);
-    });
+    console.log(`📊 Database connected: ${databaseService.type}`);
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    console.error('❌ Database connection failed:', error);
   }
 };
 
-startServer();
+// Initialize database on startup
+initializeDatabase();
 
+// Export app for Vercel
 module.exports = app;
